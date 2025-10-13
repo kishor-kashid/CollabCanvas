@@ -90,11 +90,57 @@ export function CanvasProvider({ children }) {
     setPosition(newPos);
   };
   
-  // Shape operations to be implemented in PR #4-5:
-  // - addShape(shapeData)
-  // - updateShape(id, updates)
-  // - deleteShape(id)
-  // - selectShape(id)
+  // Shape operations
+  
+  // Generate unique ID for shapes
+  const generateShapeId = () => {
+    return `shape_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+  
+  // Add a new shape
+  const addShape = (type = 'rectangle', position = null) => {
+    const newShape = {
+      id: generateShapeId(),
+      type,
+      x: position?.x || 100,
+      y: position?.y || 100,
+      width: 100,
+      height: 100,
+      fill: '#cccccc', // Fixed gray fill for MVP
+      isLocked: false,
+      lockedBy: null,
+    };
+    
+    setShapes([...shapes, newShape]);
+    setSelectedId(newShape.id);
+  };
+  
+  // Update shape properties
+  const updateShape = (id, updates) => {
+    setShapes(shapes.map(shape => 
+      shape.id === id ? { ...shape, ...updates } : shape
+    ));
+  };
+  
+  // Delete shape
+  const deleteShape = (id) => {
+    setShapes(shapes.filter(shape => shape.id !== id));
+    if (selectedId === id) {
+      setSelectedId(null);
+    }
+  };
+  
+  // Select shape
+  const selectShape = (id) => {
+    setSelectedId(id);
+  };
+  
+  // Deselect all shapes
+  const deselectAll = () => {
+    setSelectedId(null);
+  };
+  
+  // Lock/unlock operations for PR #5 (real-time sync)
   // - lockShape(id, userId)
   // - unlockShape(id)
   
@@ -114,6 +160,13 @@ export function CanvasProvider({ children }) {
     handleWheel,
     handleDragEnd,
     constrainPosition,
+    // Shape operations
+    addShape,
+    updateShape,
+    deleteShape,
+    selectShape,
+    deselectAll,
+    generateShapeId,
   };
   
   return (

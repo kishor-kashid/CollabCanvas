@@ -4,6 +4,7 @@ import { useContext, useEffect } from 'react';
 import { Stage, Layer, Rect, Line, Text } from 'react-konva';
 import { CanvasContext } from '../../contexts/CanvasContext';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
+import Shape from './Shape';
 
 export default function Canvas() {
   const {
@@ -12,6 +13,12 @@ export default function Canvas() {
     position,
     handleWheel,
     handleDragEnd,
+    shapes,
+    selectedId,
+    selectShape,
+    deselectAll,
+    updateShape,
+    deleteShape,
   } = useContext(CanvasContext);
   
   useEffect(() => {
@@ -22,6 +29,46 @@ export default function Canvas() {
       stage.listening(true);
     }
   }, [stageRef]);
+  
+  // Handle keyboard events for delete
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Delete or Backspace key
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+        e.preventDefault();
+        const selectedShape = shapes.find(s => s.id === selectedId);
+        // Only delete if not locked
+        if (selectedShape && !selectedShape.isLocked) {
+          deleteShape(selectedId);
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedId, shapes, deleteShape]);
+  
+  // Handle clicking on stage background to deselect
+  const handleStageClick = (e) => {
+    // Check if clicked on empty area (stage itself)
+    if (e.target === e.target.getStage()) {
+      deselectAll();
+    }
+  };
+  
+  // Handle shape selection
+  const handleShapeSelect = (id) => {
+    selectShape(id);
+  };
+  
+  // Handle shape drag end
+  const handleShapeDragEnd = (id) => (e) => {
+    const node = e.target;
+    updateShape(id, {
+      x: node.x(),
+      y: node.y(),
+    });
+  };
   
   // Generate grid lines for visual reference
   const generateGrid = () => {
@@ -104,6 +151,8 @@ export default function Canvas() {
         draggable
         onWheel={handleWheel}
         onDragEnd={handleDragEnd}
+        onClick={handleStageClick}
+        onTap={handleStageClick}
         style={{ cursor: 'grab' }}
         onMouseDown={(e) => {
           // Change cursor to grabbing when dragging
@@ -181,7 +230,25 @@ export default function Canvas() {
             listening={false}
           />
           
-          {/* Shapes will be rendered here in PR #4 */}
+          {/* Render Shapes */}
+          {shapes.map((shape) => (
+            <Shape
+              key={shape.id}
+              id={shape.id}
+              x={shape.x}
+              y={shape.y}
+              width={shape.width}
+              height={shape.height}
+              fill={shape.fill}
+              isSelected={shape.id === selectedId}
+              isLocked={shape.isLocked}
+              lockedBy={shape.lockedBy}
+              onSelect={() => handleShapeSelect(shape.id)}
+              onDragEnd={handleShapeDragEnd(shape.id)}
+              canvasWidth={CANVAS_WIDTH}
+              canvasHeight={CANVAS_HEIGHT}
+            />
+          ))}
         </Layer>
       </Stage>
     </div>

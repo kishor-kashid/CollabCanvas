@@ -4,7 +4,20 @@ import { useContext } from 'react';
 import { CanvasContext } from '../../contexts/CanvasContext';
 
 export default function CanvasControls() {
-  const { scale, zoomIn, zoomOut, resetView } = useContext(CanvasContext);
+  const { scale, zoomIn, zoomOut, resetView, addShape, stageRef, position } = useContext(CanvasContext);
+  
+  // Calculate center of current viewport
+  const handleAddShape = () => {
+    if (stageRef.current) {
+      const stage = stageRef.current;
+      const centerX = (-position.x + window.innerWidth / 2) / scale;
+      const centerY = (-position.y + window.innerHeight / 2) / scale;
+      
+      addShape('rectangle', { x: centerX - 50, y: centerY - 50 }); // Center the 100x100 shape
+    } else {
+      addShape('rectangle', { x: 100, y: 100 }); // Fallback position
+    }
+  };
   
   return (
     <div className="fixed left-4 top-24 z-20 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
@@ -59,19 +72,19 @@ export default function CanvasControls() {
           </button>
         </div>
         
-        {/* Add Shape Button (for PR #4) */}
+        {/* Add Shape Button */}
         <div className="pt-2 border-t border-gray-200">
           <button
-            disabled
-            className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed font-medium text-sm"
-            title="Add Shape (Coming in PR #4)"
+            onClick={handleAddShape}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-200 font-medium text-sm"
+            title="Add Rectangle Shape"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
             <span>Add Shape</span>
           </button>
-          <p className="text-xs text-gray-400 text-center mt-1">Coming in PR #4</p>
+          <p className="text-xs text-gray-500 text-center mt-1">Creates at viewport center</p>
         </div>
         
         {/* Keyboard Shortcuts */}
@@ -85,6 +98,10 @@ export default function CanvasControls() {
             <div className="flex justify-between">
               <span>Zoom:</span>
               <span className="font-mono bg-gray-100 px-1 rounded">Scroll</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Delete:</span>
+              <span className="font-mono bg-gray-100 px-1 rounded">Del</span>
             </div>
           </div>
         </div>

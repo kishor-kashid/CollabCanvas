@@ -1,7 +1,84 @@
-// Shape Component - To be implemented in PR #4
-// This component will render individual shapes (rectangles) on the canvas
+// Shape Component - Renders individual rectangles on the canvas
 
-export default function Shape({ id, x, y, width, height, fill, isSelected, isLocked, lockedBy }) {
-  return null; // Konva shape component
+import { Rect, Transformer } from 'react-konva';
+import { useRef, useEffect } from 'react';
+
+export default function Shape({ 
+  id, 
+  x, 
+  y, 
+  width, 
+  height, 
+  fill, 
+  isSelected, 
+  isLocked, 
+  lockedBy,
+  onSelect,
+  onDragEnd,
+  canvasWidth,
+  canvasHeight
+}) {
+  const shapeRef = useRef(null);
+  const trRef = useRef(null);
+  
+  // Attach transformer when shape is selected
+  useEffect(() => {
+    if (isSelected && trRef.current && shapeRef.current) {
+      trRef.current.nodes([shapeRef.current]);
+      trRef.current.getLayer().batchDraw();
+    }
+  }, [isSelected]);
+  
+  // Handle drag boundary constraints
+  const handleDragMove = (e) => {
+    const node = e.target;
+    const x = node.x();
+    const y = node.y();
+    const width = node.width();
+    const height = node.height();
+    
+    // Constrain within canvas boundaries
+    const newX = Math.max(0, Math.min(x, canvasWidth - width));
+    const newY = Math.max(0, Math.min(y, canvasHeight - height));
+    
+    node.x(newX);
+    node.y(newY);
+  };
+  
+  return (
+    <>
+      <Rect
+        ref={shapeRef}
+        id={id}
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={fill}
+        stroke={isSelected ? '#2196F3' : (isLocked ? '#FF5722' : '#666666')}
+        strokeWidth={isSelected ? 3 : (isLocked ? 2 : 1)}
+        shadowColor={isSelected ? '#2196F3' : 'transparent'}
+        shadowBlur={isSelected ? 10 : 0}
+        shadowOpacity={isSelected ? 0.5 : 0}
+        draggable={!isLocked}
+        onClick={onSelect}
+        onTap={onSelect}
+        onDragMove={handleDragMove}
+        onDragEnd={onDragEnd}
+        opacity={isLocked ? 0.7 : 1}
+      />
+      
+      {/* Transformer for selected shapes (resize handles) - Disabled for MVP */}
+      {isSelected && (
+        <Transformer
+          ref={trRef}
+          enabledAnchors={[]} // Disable resize for MVP - only rectangles, no resize
+          borderStroke="#2196F3"
+          borderStrokeWidth={2}
+          borderDash={[4, 4]}
+        />
+      )}
+    </>
+  );
 }
 
