@@ -1,0 +1,54 @@
+// Constants - Configuration values for the application
+
+// Canvas dimensions (5000x5000px bounded space)
+export const CANVAS_WIDTH = 5000;
+export const CANVAS_HEIGHT = 5000;
+
+// Viewport dimensions (visible area)
+export const VIEWPORT_WIDTH = window.innerWidth;
+export const VIEWPORT_HEIGHT = window.innerHeight;
+
+// Zoom constraints
+export const MIN_ZOOM = 0.1;
+export const MAX_ZOOM = 3;
+
+// Shape defaults
+export const DEFAULT_SHAPE_WIDTH = 100;
+export const DEFAULT_SHAPE_HEIGHT = 100;
+export const DEFAULT_SHAPE_FILL = '#cccccc'; // Gray fill for MVP
+
+// Performance settings
+export const TARGET_FPS = 60;
+export const CURSOR_UPDATE_FPS = 30; // Throttled for network efficiency
+export const CURSOR_UPDATE_INTERVAL = 1000 / CURSOR_UPDATE_FPS; // ~33ms
+
+// Lock timeout (auto-release after 3-5 seconds of inactivity)
+export const LOCK_TIMEOUT_MS = 5000;
+
+// User display name max length
+export const MAX_DISPLAY_NAME_LENGTH = 20;
+
+// Cursor colors palette (8-10 distinct colors with good contrast)
+export const CURSOR_COLORS = [
+  '#FF5733', // Red-Orange
+  '#33C1FF', // Sky Blue
+  '#8B5CF6', // Purple
+  '#10B981', // Green
+  '#F59E0B', // Amber
+  '#EC4899', // Pink
+  '#6366F1', // Indigo
+  '#14B8A6', // Teal
+  '#F97316', // Orange
+  '#A855F7', // Violet
+];
+
+// Firebase collections/paths
+export const CANVAS_COLLECTION = 'canvas';
+export const CANVAS_ID = 'global-canvas-v1';
+export const SESSION_PATH = 'sessions/global-canvas-v1';
+
+// Performance thresholds
+export const MAX_SHAPES = 500; // Max shapes for MVP performance target
+export const LATENCY_TARGET_SHAPES = 100; // Target <100ms for shape updates
+export const LATENCY_TARGET_CURSORS = 50; // Target <50ms for cursor updates
+
