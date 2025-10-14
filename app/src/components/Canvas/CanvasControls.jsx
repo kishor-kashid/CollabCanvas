@@ -23,7 +23,7 @@ export default function CanvasControls() {
   };
   
   return (
-    <div className="fixed left-4 top-24 z-20 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
+    <div className="fixed left-4 top-20 z-20 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2">
         <h3 className="text-white font-semibold text-sm">Canvas Controls</h3>

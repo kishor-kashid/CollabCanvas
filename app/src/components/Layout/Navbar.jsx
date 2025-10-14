@@ -26,9 +26,10 @@ export default function Navbar() {
   
   return (
     <nav className="bg-white shadow-md border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Using px-4 to align with Canvas Controls left-4 positioning */}
+      <div className="px-4">
         <div className="flex justify-between items-center h-16">
-          {/* Logo and Title */}
+          {/* Logo and Title - Aligned with Canvas Controls */}
           <div className="flex items-center space-x-3">
             <div className="flex-shrink-0">
               <svg className="h-8 w-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
@@ -36,14 +37,11 @@ export default function Navbar() {
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-blue-600">CollabCanvas</h1>
-            <span className="hidden sm:inline-block px-2 py-1 text-xs font-semibold text-blue-600 bg-blue-100 rounded-full">
-              MVP
-            </span>
           </div>
           
-          {/* User Info and Logout */}
+          {/* User Info and Logout - Aligned with Canvas Info overlay */}
           {currentUser && (
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-4">
               {/* Presence List - Online Users */}
               <PresenceList />
               

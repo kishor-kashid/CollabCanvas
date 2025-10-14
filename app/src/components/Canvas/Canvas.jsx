@@ -230,39 +230,6 @@ export default function Canvas() {
   
   return (
     <div className="relative w-full h-full overflow-hidden bg-gray-100">
-      {/* Canvas Info Overlay */}
-      <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg px-4 py-2 text-sm">
-        <div className="flex items-center space-x-4">
-          <div>
-            <span className="font-semibold text-gray-700">Zoom:</span>{' '}
-            <span className="text-blue-600 font-mono">{(scale * 100).toFixed(0)}%</span>
-          </div>
-          <div>
-            <span className="font-semibold text-gray-700">Position:</span>{' '}
-            <span className="text-blue-600 font-mono">
-              ({Math.round(position.x)}, {Math.round(position.y)})
-            </span>
-          </div>
-          <div className="text-gray-500 text-xs">
-            Canvas: {CANVAS_WIDTH}x{CANVAS_HEIGHT}px
-          </div>
-          <div className="flex items-center space-x-1">
-            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span className="text-xs text-gray-600">{isOnline ? 'Online' : 'Offline'}</span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Instructions Overlay */}
-      <div className="absolute bottom-4 right-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg px-4 py-3 text-xs max-w-xs">
-        <h4 className="font-semibold text-gray-800 mb-2">Canvas Controls:</h4>
-        <ul className="space-y-1 text-gray-600">
-          <li>🖱️ <strong>Pan:</strong> Click & drag the canvas</li>
-          <li>🔍 <strong>Zoom:</strong> Scroll mousewheel</li>
-          <li>⌨️ <strong>Reset:</strong> Use control panel (left)</li>
-        </ul>
-      </div>
-      
       {/* Konva Stage */}
       <Stage
         ref={stageRef}
