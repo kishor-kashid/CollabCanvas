@@ -1,7 +1,10 @@
 // CanvasContext - Canvas state and operations provider
 
-import { createContext, useState, useRef } from 'react';
+import { createContext, useState, useRef, useEffect } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, MIN_ZOOM, MAX_ZOOM } from '../utils/constants';
+import { useCanvas } from '../hooks/useCanvas';
+import { useAuth } from '../hooks/useAuth';
+import * as canvasService from '../services/canvas';
 
 export const CanvasContext = createContext(null);
 
@@ -9,9 +12,18 @@ export const CanvasContext = createContext(null);
  * CanvasProvider component that provides canvas state and operations
  */
 export function CanvasProvider({ children }) {
+  // Get shapes from Firestore hook
+  const { shapes: firestoreShapes, loading, error, isOnline } = useCanvas();
+  const { currentUser } = useAuth();
+  
   const [shapes, setShapes] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const stageRef = useRef(null);
+  
+  // Sync Firestore shapes to local state
+  useEffect(() => {
+    setShapes(firestoreShapes);
+  }, [firestoreShapes]);
   
   // Zoom and pan state
   const [scale, setScale] = useState(1);
@@ -90,43 +102,67 @@ export function CanvasProvider({ children }) {
     setPosition(newPos);
   };
   
-  // Shape operations
+  // Shape operations with Firestore sync
   
   // Generate unique ID for shapes
   const generateShapeId = () => {
     return `shape_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
   
-  // Add a new shape
-  const addShape = (type = 'rectangle', position = null) => {
-    const newShape = {
-      id: generateShapeId(),
-      type,
-      x: position?.x || 100,
-      y: position?.y || 100,
-      width: 100,
-      height: 100,
-      fill: '#cccccc', // Fixed gray fill for MVP
-      isLocked: false,
-      lockedBy: null,
-    };
+  // Add a new shape (syncs to Firestore)
+  const addShape = async (type = 'rectangle', position = null) => {
+    if (!currentUser) return;
     
-    setShapes([...shapes, newShape]);
-    setSelectedId(newShape.id);
+    try {
+      const newShape = {
+        id: generateShapeId(),
+        type,
+        x: position?.x || 100,
+        y: position?.y || 100,
+        width: 100,
+        height: 100,
+        fill: '#cccccc', // Fixed gray fill for MVP
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+      };
+      
+      await canvasService.createShape(newShape, currentUser.uid);
+      setSelectedId(newShape.id);
+    } catch (error) {
+      console.error('Error adding shape:', error);
+    }
   };
   
-  // Update shape properties
-  const updateShape = (id, updates) => {
-    setShapes(shapes.map(shape => 
-      shape.id === id ? { ...shape, ...updates } : shape
-    ));
+  // Update shape properties (syncs to Firestore)
+  const updateShape = async (id, updates) => {
+    if (!currentUser) return;
+    
+    try {
+      await canvasService.updateShape(id, updates, currentUser.uid);
+    } catch (error) {
+      console.error('Error updating shape:', error);
+    }
   };
   
-  // Delete shape
-  const deleteShape = (id) => {
-    setShapes(shapes.filter(shape => shape.id !== id));
-    if (selectedId === id) {
-      setSelectedId(null);
+  // Delete shape (syncs to Firestore)
+  const deleteShape = async (id) => {
+    if (!currentUser) return;
+    
+    try {
+      // Check if shape is locked by another user
+      const shape = shapes.find(s => s.id === id);
+      if (shape?.isLocked && shape.lockedBy !== currentUser.uid) {
+        console.warn('Cannot delete: Shape is locked by another user');
+        return;
+      }
+      
+      await canvasService.deleteShape(id);
+      if (selectedId === id) {
+        setSelectedId(null);
+      }
+    } catch (error) {
+      console.error('Error deleting shape:', error);
     }
   };
   
@@ -140,9 +176,29 @@ export function CanvasProvider({ children }) {
     setSelectedId(null);
   };
   
-  // Lock/unlock operations for PR #5 (real-time sync)
-  // - lockShape(id, userId)
-  // - unlockShape(id)
+  // Lock shape when starting to drag
+  const lockShape = async (id) => {
+    if (!currentUser) return false;
+    
+    try {
+      const success = await canvasService.lockShape(id, currentUser.uid);
+      return success;
+    } catch (error) {
+      console.error('Error locking shape:', error);
+      return false;
+    }
+  };
+  
+  // Unlock shape when done dragging
+  const unlockShape = async (id) => {
+    if (!currentUser) return;
+    
+    try {
+      await canvasService.unlockShape(id, currentUser.uid);
+    } catch (error) {
+      console.error('Error unlocking shape:', error);
+    }
+  };
   
   const value = {
     shapes,
@@ -150,6 +206,9 @@ export function CanvasProvider({ children }) {
     stageRef,
     scale,
     position,
+    loading,
+    error,
+    isOnline,
     setShapes,
     setSelectedId,
     setScale,
@@ -166,7 +225,10 @@ export function CanvasProvider({ children }) {
     deleteShape,
     selectShape,
     deselectAll,
+    lockShape,
+    unlockShape,
     generateShapeId,
+    currentUserId: currentUser?.uid,
   };
   
   return (

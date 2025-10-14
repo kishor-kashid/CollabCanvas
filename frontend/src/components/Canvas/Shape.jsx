@@ -9,12 +9,18 @@ export default function Shape({
   y, 
   width, 
   height, 
-  fill, 
+  fill,
+  rotation = 0,
+  scaleX = 1,
+  scaleY = 1,
   isSelected, 
   isLocked, 
   lockedBy,
   onSelect,
+  onDragStart,
   onDragEnd,
+  onTransformStart,
+  onTransformEnd,
   canvasWidth,
   canvasHeight
 }) {
@@ -55,6 +61,9 @@ export default function Shape({
         width={width}
         height={height}
         fill={fill}
+        rotation={rotation}
+        scaleX={scaleX}
+        scaleY={scaleY}
         stroke={isSelected ? '#2196F3' : (isLocked ? '#FF5722' : '#666666')}
         strokeWidth={isSelected ? 3 : (isLocked ? 2 : 1)}
         shadowColor={isSelected ? '#2196F3' : 'transparent'}
@@ -63,16 +72,20 @@ export default function Shape({
         draggable={!isLocked}
         onClick={onSelect}
         onTap={onSelect}
+        onDragStart={onDragStart}
         onDragMove={handleDragMove}
         onDragEnd={onDragEnd}
+        onTransformStart={onTransformStart}
+        onTransformEnd={onTransformEnd}
         opacity={isLocked ? 0.7 : 1}
       />
       
-      {/* Transformer for selected shapes (resize handles) - Disabled for MVP */}
-      {isSelected && (
+      {/* Transformer for selected shapes - Allows rotation, resize disabled for MVP */}
+      {isSelected && !isLocked && (
         <Transformer
           ref={trRef}
           enabledAnchors={[]} // Disable resize for MVP - only rectangles, no resize
+          rotateEnabled={true} // Allow rotation
           borderStroke="#2196F3"
           borderStrokeWidth={2}
           borderDash={[4, 4]}

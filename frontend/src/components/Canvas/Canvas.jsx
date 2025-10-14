@@ -19,6 +19,11 @@ export default function Canvas() {
     deselectAll,
     updateShape,
     deleteShape,
+    lockShape,
+    unlockShape,
+    loading,
+    isOnline,
+    currentUserId,
   } = useContext(CanvasContext);
   
   useEffect(() => {
@@ -61,13 +66,43 @@ export default function Canvas() {
     selectShape(id);
   };
   
-  // Handle shape drag end
-  const handleShapeDragEnd = (id) => (e) => {
+  // Handle shape drag start - acquire lock
+  const handleShapeDragStart = (id) => async () => {
+    const success = await lockShape(id);
+    if (!success) {
+      console.warn('Could not acquire lock on shape');
+    }
+  };
+  
+  // Handle shape drag end - update position and release lock
+  const handleShapeDragEnd = (id) => async (e) => {
     const node = e.target;
-    updateShape(id, {
+    await updateShape(id, {
       x: node.x(),
       y: node.y(),
     });
+    await unlockShape(id);
+  };
+  
+  // Handle shape transform start - acquire lock
+  const handleShapeTransformStart = (id) => async () => {
+    const success = await lockShape(id);
+    if (!success) {
+      console.warn('Could not acquire lock on shape');
+    }
+  };
+  
+  // Handle shape transform end - update rotation and other transforms, release lock
+  const handleShapeTransformEnd = (id) => async (e) => {
+    const node = e.target;
+    await updateShape(id, {
+      x: node.x(),
+      y: node.y(),
+      rotation: node.rotation(),
+      scaleX: node.scaleX(),
+      scaleY: node.scaleY(),
+    });
+    await unlockShape(id);
   };
   
   // Generate grid lines for visual reference
@@ -108,6 +143,19 @@ export default function Canvas() {
     return lines;
   };
   
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="relative w-full h-full overflow-hidden bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-xl text-gray-600 font-semibold">Loading canvas...</p>
+          <p className="text-sm text-gray-500 mt-2">Syncing shapes from Firestore</p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="relative w-full h-full overflow-hidden bg-gray-100">
       {/* Canvas Info Overlay */}
@@ -125,6 +173,10 @@ export default function Canvas() {
           </div>
           <div className="text-gray-500 text-xs">
             Canvas: {CANVAS_WIDTH}x{CANVAS_HEIGHT}px
+          </div>
+          <div className="flex items-center space-x-1">
+            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-xs text-gray-600">{isOnline ? 'Online' : 'Offline'}</span>
           </div>
         </div>
       </div>
@@ -240,11 +292,17 @@ export default function Canvas() {
               width={shape.width}
               height={shape.height}
               fill={shape.fill}
+              rotation={shape.rotation || 0}
+              scaleX={shape.scaleX || 1}
+              scaleY={shape.scaleY || 1}
               isSelected={shape.id === selectedId}
-              isLocked={shape.isLocked}
+              isLocked={shape.isLocked && shape.lockedBy !== currentUserId}
               lockedBy={shape.lockedBy}
               onSelect={() => handleShapeSelect(shape.id)}
+              onDragStart={handleShapeDragStart(shape.id)}
               onDragEnd={handleShapeDragEnd(shape.id)}
+              onTransformStart={handleShapeTransformStart(shape.id)}
+              onTransformEnd={handleShapeTransformEnd(shape.id)}
               canvasWidth={CANVAS_WIDTH}
               canvasHeight={CANVAS_HEIGHT}
             />
