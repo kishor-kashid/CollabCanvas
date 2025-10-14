@@ -92,16 +92,59 @@ export default function Canvas() {
     }
   };
   
-  // Handle shape transform end - update rotation and other transforms, release lock
+  // Handle text change for text shapes
+  const handleTextChange = (id) => (newText) => {
+    updateShape(id, { text: newText });
+  };
+  
+  // Handle shape transform end - update rotation, scale, and dimensions, release lock
   const handleShapeTransformEnd = (id) => async (e) => {
     const node = e.target;
-    await updateShape(id, {
+    
+    // Get the shape to check its type
+    const shape = shapes.find(s => s.id === id);
+    if (!shape) return;
+    
+    const updates = {
       x: node.x(),
       y: node.y(),
       rotation: node.rotation(),
-      scaleX: node.scaleX(),
-      scaleY: node.scaleY(),
-    });
+    };
+    
+    // For circles, update radius based on scale
+    if (shape.type === 'circle' && shape.radius) {
+      const newRadius = shape.radius * node.scaleX();
+      updates.radius = newRadius;
+      updates.scaleX = 1;
+      updates.scaleY = 1;
+      
+      // Reset the node's scale to 1
+      node.scaleX(1);
+      node.scaleY(1);
+    }
+    // For rectangles and text, update width/height based on scale
+    else if (shape.width !== undefined && shape.height !== undefined) {
+      const newWidth = Math.max(5, shape.width * node.scaleX());
+      const newHeight = Math.max(5, shape.height * node.scaleY());
+      updates.width = newWidth;
+      updates.height = newHeight;
+      
+      // For text shapes, also scale the font size
+      if (shape.type === 'text' && shape.fontSize) {
+        const avgScale = (node.scaleX() + node.scaleY()) / 2;
+        const newFontSize = Math.max(8, Math.round(shape.fontSize * avgScale));
+        updates.fontSize = newFontSize;
+      }
+      
+      updates.scaleX = 1;
+      updates.scaleY = 1;
+      
+      // Reset the node's scale to 1
+      node.scaleX(1);
+      node.scaleY(1);
+    }
+    
+    await updateShape(id, updates);
     await unlockShape(id);
   };
   
@@ -287,10 +330,15 @@ export default function Canvas() {
             <Shape
               key={shape.id}
               id={shape.id}
+              type={shape.type}
               x={shape.x}
               y={shape.y}
               width={shape.width}
               height={shape.height}
+              radius={shape.radius}
+              text={shape.text}
+              fontSize={shape.fontSize}
+              fontFamily={shape.fontFamily}
               fill={shape.fill}
               rotation={shape.rotation || 0}
               scaleX={shape.scaleX || 1}
@@ -303,6 +351,7 @@ export default function Canvas() {
               onDragEnd={handleShapeDragEnd(shape.id)}
               onTransformStart={handleShapeTransformStart(shape.id)}
               onTransformEnd={handleShapeTransformEnd(shape.id)}
+              onTextChange={handleTextChange(shape.id)}
               canvasWidth={CANVAS_WIDTH}
               canvasHeight={CANVAS_HEIGHT}
             />

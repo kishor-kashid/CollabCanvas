@@ -12,10 +12,22 @@ export const VIEWPORT_HEIGHT = window.innerHeight;
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 3;
 
+// Shape types
+export const SHAPE_TYPES = {
+  RECTANGLE: 'rectangle',
+  CIRCLE: 'circle',
+  TEXT: 'text',
+};
+
 // Shape defaults
 export const DEFAULT_SHAPE_WIDTH = 100;
 export const DEFAULT_SHAPE_HEIGHT = 100;
-export const DEFAULT_SHAPE_FILL = '#cccccc'; // Gray fill for MVP
+export const DEFAULT_CIRCLE_RADIUS = 50;
+export const DEFAULT_SHAPE_FILL = '#cccccc'; // Gray fill for rectangles/circles
+export const DEFAULT_TEXT_CONTENT = 'Double-click to edit';
+export const DEFAULT_TEXT_SIZE = 18;
+export const DEFAULT_TEXT_COLOR = '#000000';
+export const DEFAULT_TEXT_FONT_FAMILY = 'Arial';
 
 // Performance settings
 export const TARGET_FPS = 60;

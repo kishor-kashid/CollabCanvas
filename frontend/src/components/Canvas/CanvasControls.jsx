@@ -2,20 +2,23 @@
 
 import { useContext } from 'react';
 import { CanvasContext } from '../../contexts/CanvasContext';
+import { SHAPE_TYPES } from '../../utils/constants';
 
 export default function CanvasControls() {
   const { scale, zoomIn, zoomOut, resetView, addShape, stageRef, position } = useContext(CanvasContext);
   
-  // Calculate center of current viewport
-  const handleAddShape = () => {
+  // Calculate center of current viewport and add shape
+  const handleAddShape = (shapeType) => {
     if (stageRef.current) {
       const stage = stageRef.current;
       const centerX = (-position.x + window.innerWidth / 2) / scale;
       const centerY = (-position.y + window.innerHeight / 2) / scale;
       
-      addShape('rectangle', { x: centerX - 50, y: centerY - 50 }); // Center the 100x100 shape
+      // Adjust offset based on shape type
+      const offset = shapeType === SHAPE_TYPES.CIRCLE ? 50 : 50;
+      addShape(shapeType, { x: centerX - offset, y: centerY - offset });
     } else {
-      addShape('rectangle', { x: 100, y: 100 }); // Fallback position
+      addShape(shapeType, { x: 100, y: 100 }); // Fallback position
     }
   };
   
@@ -72,19 +75,44 @@ export default function CanvasControls() {
           </button>
         </div>
         
-        {/* Add Shape Button */}
+        {/* Add Shape Buttons */}
         <div className="pt-2 border-t border-gray-200">
-          <button
-            onClick={handleAddShape}
-            className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-200 font-medium text-sm"
-            title="Add Rectangle Shape"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            <span>Add Shape</span>
-          </button>
-          <p className="text-xs text-gray-500 text-center mt-1">Creates at viewport center</p>
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Add Shapes:</h4>
+          <div className="space-y-2">
+            <button
+              onClick={() => handleAddShape(SHAPE_TYPES.RECTANGLE)}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-200 font-medium text-sm"
+              title="Add Rectangle"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <rect x="4" y="4" width="16" height="16" strokeWidth="2" rx="2" />
+              </svg>
+              <span>Rectangle</span>
+            </button>
+            
+            <button
+              onClick={() => handleAddShape(SHAPE_TYPES.CIRCLE)}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition duration-200 font-medium text-sm"
+              title="Add Circle"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="8" strokeWidth="2" />
+              </svg>
+              <span>Circle</span>
+            </button>
+            
+            <button
+              onClick={() => handleAddShape(SHAPE_TYPES.TEXT)}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition duration-200 font-medium text-sm"
+              title="Add Text"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Text</span>
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 text-center mt-2">Creates at viewport center</p>
         </div>
         
         {/* Keyboard Shortcuts */}

@@ -1,7 +1,21 @@
 // CanvasContext - Canvas state and operations provider
 
 import { createContext, useState, useRef, useEffect } from 'react';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, MIN_ZOOM, MAX_ZOOM } from '../utils/constants';
+import { 
+  CANVAS_WIDTH, 
+  CANVAS_HEIGHT, 
+  MIN_ZOOM, 
+  MAX_ZOOM,
+  SHAPE_TYPES,
+  DEFAULT_SHAPE_WIDTH,
+  DEFAULT_SHAPE_HEIGHT,
+  DEFAULT_CIRCLE_RADIUS,
+  DEFAULT_SHAPE_FILL,
+  DEFAULT_TEXT_CONTENT,
+  DEFAULT_TEXT_SIZE,
+  DEFAULT_TEXT_COLOR,
+  DEFAULT_TEXT_FONT_FAMILY,
+} from '../utils/constants';
 import { useCanvas } from '../hooks/useCanvas';
 import { useAuth } from '../hooks/useAuth';
 import * as canvasService from '../services/canvas';
@@ -110,22 +124,60 @@ export function CanvasProvider({ children }) {
   };
   
   // Add a new shape (syncs to Firestore)
-  const addShape = async (type = 'rectangle', position = null) => {
+  const addShape = async (type = SHAPE_TYPES.RECTANGLE, position = null) => {
     if (!currentUser) return;
     
     try {
-      const newShape = {
+      const baseShape = {
         id: generateShapeId(),
         type,
         x: position?.x || 100,
         y: position?.y || 100,
-        width: 100,
-        height: 100,
-        fill: '#cccccc', // Fixed gray fill for MVP
         rotation: 0,
         scaleX: 1,
         scaleY: 1,
       };
+      
+      // Add type-specific properties
+      let newShape;
+      switch (type) {
+        case SHAPE_TYPES.RECTANGLE:
+          newShape = {
+            ...baseShape,
+            width: DEFAULT_SHAPE_WIDTH,
+            height: DEFAULT_SHAPE_HEIGHT,
+            fill: DEFAULT_SHAPE_FILL,
+          };
+          break;
+        
+        case SHAPE_TYPES.CIRCLE:
+          newShape = {
+            ...baseShape,
+            radius: DEFAULT_CIRCLE_RADIUS,
+            fill: DEFAULT_SHAPE_FILL,
+          };
+          break;
+        
+        case SHAPE_TYPES.TEXT:
+          newShape = {
+            ...baseShape,
+            text: DEFAULT_TEXT_CONTENT,
+            fontSize: DEFAULT_TEXT_SIZE,
+            fontFamily: DEFAULT_TEXT_FONT_FAMILY,
+            fill: DEFAULT_TEXT_COLOR,
+            width: 200, // Text box width
+            height: 100, // Text box height (needs to be set for resize to work)
+          };
+          break;
+        
+        default:
+          newShape = {
+            ...baseShape,
+            width: DEFAULT_SHAPE_WIDTH,
+            height: DEFAULT_SHAPE_HEIGHT,
+            fill: DEFAULT_SHAPE_FILL,
+          };
+      }
       
       await canvasService.createShape(newShape, currentUser.uid);
       setSelectedId(newShape.id);
