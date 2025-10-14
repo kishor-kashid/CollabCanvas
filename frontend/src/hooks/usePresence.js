@@ -1,8 +1,9 @@
-// usePresence Hook - To be implemented in PR #7
-// This hook manages user presence (online/offline status)
+// usePresence Hook - Manages user presence (online/offline status)
 
 import { useState, useEffect } from 'react';
-import { subscribeToPresence } from '../services/presence';
+import { subscribeToPresence, setUserOnline, setUserOffline } from '../services/presence';
+import { useAuth } from './useAuth';
+import { useCursors } from './useCursors';
 
 /**
  * Custom hook for user presence management
@@ -10,19 +11,41 @@ import { subscribeToPresence } from '../services/presence';
  */
 export function usePresence() {
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const { currentUser } = useAuth();
+  const { userColor } = useCursors();
   
   useEffect(() => {
+    if (!currentUser) {
+      console.log('❌ usePresence: No currentUser');
+      return;
+    }
+    
+    console.log('✅ usePresence: Setting user online', currentUser.uid);
+    
+    // Set current user as online
+    const displayName = currentUser.displayName || 
+                       currentUser.email?.split('@')[0] || 
+                       'Anonymous';
+    
+    setUserOnline(currentUser.uid, displayName, userColor);
+    
     // Subscribe to presence updates
     const unsubscribe = subscribeToPresence((presenceData) => {
+      console.log('👥 Presence data received:', presenceData);
       const users = Object.entries(presenceData).map(([userId, userData]) => ({
         userId,
         ...userData,
       }));
+      console.log('👥 Online users:', users);
       setOnlineUsers(users);
     });
     
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      console.log('🧹 Cleaning up presence for', currentUser.uid);
+      unsubscribe();
+      setUserOffline(currentUser.uid);
+    };
+  }, [currentUser, userColor]);
   
   return {
     onlineUsers,

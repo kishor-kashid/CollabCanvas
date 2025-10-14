@@ -59,7 +59,48 @@ npm install
 2. Scroll to "Your apps" section
 3. Copy your Firebase configuration object
 
-### 3. Environment Variables
+### 3. Configure Firebase Security Rules
+
+#### Firestore Rules
+1. Go to **Firestore Database** > **Rules** tab
+2. Replace with these rules:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /canvases/{canvasId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+  }
+}
+```
+
+#### Realtime Database Rules
+1. Go to **Realtime Database** > **Rules** tab
+2. Replace with these rules:
+
+```json
+{
+  "rules": {
+    "sessions": {
+      "global-canvas-v1": {
+        ".read": true,
+        "$userId": {
+          ".write": "$userId === auth.uid"
+        }
+      }
+    }
+  }
+}
+```
+
+**Important:** The `.read: true` must be at the `global-canvas-v1` level (not at `$userId` level) so users can see all cursors.
+
+3. Click **Publish** to save
+
+### 4. Environment Variables
 
 Create a `.env` file in the root directory:
 
@@ -79,7 +120,9 @@ VITE_FIREBASE_APP_ID=your_app_id
 VITE_FIREBASE_DATABASE_URL=https://your_project_id-default-rtdb.firebaseio.com
 ```
 
-### 4. Run Development Server
+**IMPORTANT:** The `VITE_FIREBASE_DATABASE_URL` is required for cursor tracking. Get it from Firebase Console > Realtime Database (top of page).
+
+### 5. Run Development Server
 
 ```bash
 npm run dev
@@ -87,12 +130,54 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
+**Note:** After adding or changing `.env` variables, you MUST restart the dev server for changes to take effect.
+
 ## 📦 Available Scripts
 
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
+
+## 🐛 Troubleshooting
+
+### Cursors Not Appearing
+
+1. **Check Firebase Console Logs:**
+   - Open browser DevTools (F12) > Console
+   - Look for "✅ Firebase initialized successfully" message
+   - Look for "✅ useCursors: Setting up cursor tracking" message
+   - Look for "📍 Received cursors:" messages when moving mouse
+
+2. **Verify Database URL:**
+   - Make sure `VITE_FIREBASE_DATABASE_URL` is in your `.env` file
+   - It should look like: `https://your-project-id-default-rtdb.firebaseio.com`
+   - **Restart your dev server** after changing `.env`
+
+3. **Check Realtime Database Rules:**
+   - Go to Firebase Console > Realtime Database > Rules
+   - Make sure rules are published (see setup instructions above)
+   - Rules should allow reading all cursors but only writing your own
+
+4. **Verify in Firebase Console:**
+   - Go to Realtime Database > Data tab
+   - When users are active, you should see: `sessions` > `global-canvas-v1` > `{userId}` > cursor data
+   - If you don't see any data, cursor updates aren't reaching Firebase
+
+5. **Test with Two Users:**
+   - Open app in two different browsers (or use incognito mode)
+   - Sign in with different accounts
+   - Move mouse in one window
+   - Check console logs in both windows
+
+### Common Console Messages:
+
+- ✅ **Good:** "✅ Firebase initialized successfully"
+- ✅ **Good:** "📍 Received cursors: {...}"
+- ✅ **Good:** "🖱️ Updating cursor: {...}"
+- ❌ **Error:** "Missing required Firebase environment variables" → Check `.env`
+- ❌ **Error:** "PERMISSION_DENIED" → Check Firebase RTDB rules
+- ⚠️ **Warning:** "⚠️ Invalid cursor data" → Data structure issue
 
 ## 🎯 MVP Features
 

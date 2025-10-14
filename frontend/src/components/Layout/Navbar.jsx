@@ -1,6 +1,7 @@
 // Navbar Component - Displays user info, logout button, and branding
 
 import { useAuth } from '../../hooks/useAuth';
+import PresenceList from '../Collaboration/PresenceList';
 
 export default function Navbar() {
   const { currentUser, logout } = useAuth();
@@ -42,7 +43,13 @@ export default function Navbar() {
           
           {/* User Info and Logout */}
           {currentUser && (
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-6">
+              {/* Presence List - Online Users */}
+              <PresenceList />
+              
+              {/* Divider */}
+              <div className="h-8 w-px bg-gray-300"></div>
+              
               {/* User Avatar and Name */}
               <div className="flex items-center space-x-2">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm">

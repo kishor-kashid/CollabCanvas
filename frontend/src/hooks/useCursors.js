@@ -1,23 +1,99 @@
-// useCursors Hook - To be implemented in PR #6
-// This hook tracks and updates cursor positions for multiplayer
+// useCursors Hook - Real-time cursor tracking for all users
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from './useAuth';
+import { subscribeToCursors, updateCursorPosition, removeCursor, setupCursorCleanup } from '../services/cursors';
+import { generateUserColor } from '../utils/helpers';
+import { CURSOR_UPDATE_INTERVAL } from '../utils/constants';
 
 /**
- * Custom hook for multiplayer cursor tracking
- * @returns {object} Cursor state and update function
+ * Custom hook for real-time cursor tracking
+ * @returns {object} Cursors state and update function
  */
 export function useCursors() {
+  const { currentUser } = useAuth();
   const [cursors, setCursors] = useState({});
+  const [userColor] = useState(() => {
+    // Generate color once and keep it consistent
+    return generateUserColor(currentUser?.uid);
+  });
   
-  // To be implemented in PR #6
-  // - Subscribe to cursor position updates
-  // - Throttle cursor position updates to 20-30 FPS
-  // - Convert screen coords to canvas coords
+  const lastUpdateRef = useRef(0);
+  const lastPositionRef = useRef({ x: 0, y: 0 });
+  
+  // Subscribe to cursor updates
+  useEffect(() => {
+    if (!currentUser) {
+      console.log('❌ useCursors: No currentUser');
+      return;
+    }
+    
+    console.log('✅ useCursors: Setting up cursor tracking for', currentUser.uid);
+    
+    const unsubscribe = subscribeToCursors((allCursors) => {
+      console.log('📍 Received cursors:', allCursors);
+      
+      // Filter out current user's cursor
+      const otherCursors = { ...allCursors };
+      delete otherCursors[currentUser.uid];
+      
+      console.log('👥 Other users cursors:', otherCursors);
+      setCursors(otherCursors);
+    });
+    
+    // Set up automatic cleanup on disconnect
+    setupCursorCleanup(currentUser.uid);
+    
+    return () => {
+      console.log('🧹 Cleaning up cursor for', currentUser.uid);
+      unsubscribe();
+      // Remove cursor on unmount
+      removeCursor(currentUser.uid);
+    };
+  }, [currentUser]);
+  
+  /**
+   * Update cursor position (throttled)
+   * @param {number} x - Canvas X coordinate
+   * @param {number} y - Canvas Y coordinate
+   */
+  const updateCursor = useCallback((x, y) => {
+    if (!currentUser) return;
+    
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastUpdateRef.current;
+    
+    // Throttle: Only update if enough time has passed
+    if (timeSinceLastUpdate < CURSOR_UPDATE_INTERVAL) {
+      return;
+    }
+    
+    // Only update if position changed significantly (>2px)
+    const dx = Math.abs(x - lastPositionRef.current.x);
+    const dy = Math.abs(y - lastPositionRef.current.y);
+    
+    if (dx < 2 && dy < 2) {
+      return;
+    }
+    
+    // Update last position and time
+    lastPositionRef.current = { x, y };
+    lastUpdateRef.current = now;
+    
+    // Get display name
+    const displayName = currentUser.displayName || 
+                       currentUser.email?.split('@')[0] || 
+                       'Anonymous';
+    
+    console.log('🖱️ Updating cursor:', { x, y, displayName, userColor });
+    
+    // Update in Realtime Database
+    updateCursorPosition(currentUser.uid, x, y, displayName, userColor);
+  }, [currentUser, userColor]);
   
   return {
     cursors,
-    updateCursorPosition: () => {},
+    updateCursor,
+    userColor,
   };
 }
-

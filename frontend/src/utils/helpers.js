@@ -1,113 +1,63 @@
-// Helper Functions - Utility functions used across the application
+// Helper Utilities - Color generation and other utilities
 
-import { CURSOR_COLORS, MAX_DISPLAY_NAME_LENGTH } from './constants';
+import { CURSOR_COLORS } from './constants';
 
 /**
- * Generate a unique color for a user based on their ID
+ * Generate a consistent color for a user based on their userId
+ * Uses a hash function to ensure same user always gets same color
  * @param {string} userId - User ID
  * @returns {string} Hex color code
  */
 export function generateUserColor(userId) {
-  // Use a simple hash of the user ID to pick a color
+  if (!userId) {
+    return CURSOR_COLORS[0];
+  }
+  
+  // Simple hash function to convert userId to a number
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {
     hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+    hash = hash & hash; // Convert to 32-bit integer
   }
   
+  // Use absolute value and modulo to get index
   const index = Math.abs(hash) % CURSOR_COLORS.length;
+  
   return CURSOR_COLORS[index];
 }
 
 /**
- * Truncate display name to max length
- * @param {string} name - Display name
- * @returns {string} Truncated name
- */
-export function truncateDisplayName(name) {
-  if (!name) return 'Anonymous';
-  if (name.length <= MAX_DISPLAY_NAME_LENGTH) return name;
-  return name.substring(0, MAX_DISPLAY_NAME_LENGTH) + '...';
-}
-
-/**
- * Extract display name from email (use part before @)
- * @param {string} email - Email address
- * @returns {string} Display name
- */
-export function getDisplayNameFromEmail(email) {
-  if (!email) return 'Anonymous';
-  const name = email.split('@')[0];
-  return truncateDisplayName(name);
-}
-
-/**
- * Generate a unique ID for shapes
- * @returns {string} Unique ID
- */
-export function generateShapeId() {
-  return `shape_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
-
-/**
- * Throttle function calls to limit frequency
+ * Throttle function - limits how often a function can be called
  * @param {function} func - Function to throttle
- * @param {number} limit - Time limit in milliseconds
+ * @param {number} limit - Minimum time between calls (ms)
  * @returns {function} Throttled function
  */
 export function throttle(func, limit) {
   let inThrottle;
+  let lastResult;
+  
   return function(...args) {
     if (!inThrottle) {
-      func.apply(this, args);
+      lastResult = func.apply(this, args);
       inThrottle = true;
-      setTimeout(() => (inThrottle = false), limit);
+      
+      setTimeout(() => {
+        inThrottle = false;
+      }, limit);
     }
+    
+    return lastResult;
   };
 }
 
 /**
- * Debounce function calls to delay execution
- * @param {function} func - Function to debounce
- * @param {number} wait - Wait time in milliseconds
- * @returns {function} Debounced function
+ * Get truncated display name for cursor label
+ * @param {string} name - Full display name
+ * @param {number} maxLength - Maximum length (default 15)
+ * @returns {string} Truncated name
  */
-export function debounce(func, wait) {
-  let timeout;
-  return function(...args) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(this, args), wait);
-  };
+export function getTruncatedName(name, maxLength = 15) {
+  if (!name) return 'Anonymous';
+  if (name.length <= maxLength) return name;
+  return name.substring(0, maxLength) + '...';
 }
-
-/**
- * Check if a point is within canvas boundaries
- * @param {number} x - X coordinate
- * @param {number} y - Y coordinate
- * @param {number} canvasWidth - Canvas width
- * @param {number} canvasHeight - Canvas height
- * @returns {boolean} True if within bounds
- */
-export function isWithinCanvasBounds(x, y, canvasWidth, canvasHeight) {
-  return x >= 0 && x <= canvasWidth && y >= 0 && y <= canvasHeight;
-}
-
-/**
- * Clamp a value between min and max
- * @param {number} value - Value to clamp
- * @param {number} min - Minimum value
- * @param {number} max - Maximum value
- * @returns {number} Clamped value
- */
-export function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
-/**
- * Format timestamp to readable time
- * @param {number} timestamp - Unix timestamp
- * @returns {string} Formatted time
- */
-export function formatTime(timestamp) {
-  return new Date(timestamp).toLocaleTimeString();
-}
-

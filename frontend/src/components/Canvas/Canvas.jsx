@@ -4,7 +4,9 @@ import { useContext, useEffect } from 'react';
 import { Stage, Layer, Rect, Line, Text } from 'react-konva';
 import { CanvasContext } from '../../contexts/CanvasContext';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
+import { useCursors } from '../../hooks/useCursors';
 import Shape from './Shape';
+import Cursor from '../Collaboration/Cursor';
 
 export default function Canvas() {
   const {
@@ -25,6 +27,9 @@ export default function Canvas() {
     isOnline,
     currentUserId,
   } = useContext(CanvasContext);
+  
+  // Cursor tracking
+  const { cursors, updateCursor } = useCursors();
   
   useEffect(() => {
     // Set up performance optimizations
@@ -59,6 +64,23 @@ export default function Canvas() {
     if (e.target === e.target.getStage()) {
       deselectAll();
     }
+  };
+  
+  // Handle mouse move to track cursor position
+  const handleMouseMove = (e) => {
+    const stage = e.target.getStage();
+    if (!stage) return;
+    
+    // Get pointer position relative to stage
+    const pointerPosition = stage.getPointerPosition();
+    if (!pointerPosition) return;
+    
+    // Convert screen coordinates to canvas coordinates
+    const canvasX = (pointerPosition.x - position.x) / scale;
+    const canvasY = (pointerPosition.y - position.y) / scale;
+    
+    // Update cursor position in RTDB
+    updateCursor(canvasX, canvasY);
   };
   
   // Handle shape selection
@@ -248,6 +270,7 @@ export default function Canvas() {
         onDragEnd={handleDragEnd}
         onClick={handleStageClick}
         onTap={handleStageClick}
+        onMouseMove={handleMouseMove}
         style={{ cursor: 'grab' }}
         onMouseDown={(e) => {
           // Change cursor to grabbing when dragging
@@ -358,6 +381,31 @@ export default function Canvas() {
           ))}
         </Layer>
       </Stage>
+      
+      {/* Render other users' cursors */}
+      {Object.keys(cursors).length > 0 && console.log('🎨 Rendering cursors:', cursors)}
+      {Object.entries(cursors).map(([userId, cursor]) => {
+        if (!cursor || cursor.cursorX === undefined || cursor.cursorY === undefined) {
+          console.warn('⚠️ Invalid cursor data for user:', userId, cursor);
+          return null;
+        }
+        
+        // Convert canvas coordinates to screen coordinates
+        const screenX = cursor.cursorX * scale + position.x;
+        const screenY = cursor.cursorY * scale + position.y;
+        
+        console.log('👆 Rendering cursor for', cursor.displayName, 'at', { screenX, screenY });
+        
+        return (
+          <Cursor
+            key={userId}
+            x={screenX}
+            y={screenY}
+            color={cursor.cursorColor}
+            displayName={cursor.displayName}
+          />
+        );
+      })}
     </div>
   );
 }
