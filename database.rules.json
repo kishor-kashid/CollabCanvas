@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "sessions": {
+      "global-canvas-v1": {
+        ".read": true,
+        "$userId": {
+          ".write": "$userId === auth.uid"
+        }
+      }
+    }
+  }
+}
+

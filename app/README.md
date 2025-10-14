@@ -2,6 +2,14 @@
 
 Real-time collaborative design tool - A multiplayer canvas where users can create and manipulate shapes together in real-time.
 
+## 🌐 Live Demo
+
+**🚀 Deployed at:** [Coming Soon - Follow deployment steps below]
+
+<!-- After deployment, update with your actual URL:
+**🚀 Live Demo:** https://your-project-id.web.app
+-->
+
 ## 🚀 Tech Stack
 
 - **Frontend:** React 19 + Vite 5
@@ -190,6 +198,44 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 - ✅ Multiplayer cursors with unique colors
 - ✅ Presence awareness (who's online)
 - ✅ State persistence across sessions
+
+## 🚀 Deployment to Firebase Hosting
+
+### Quick Deploy
+
+1. **Install Firebase CLI** (if not already installed):
+   ```bash
+   npm install -g firebase-tools
+   ```
+
+2. **Login to Firebase**:
+   ```bash
+   firebase login
+   ```
+
+3. **Update Project ID**:
+   - Open `../.firebaserc` (in CollabCanvas root)
+   - Replace `your-firebase-project-id` with your actual Firebase project ID
+
+4. **Build Production Bundle**:
+   ```bash
+   npm run build
+   ```
+
+5. **Deploy** (from CollabCanvas root directory):
+   ```bash
+   cd ..
+   firebase deploy
+   ```
+
+6. **Access Your App**:
+   - Your app will be live at: `https://your-project-id.web.app`
+
+### Detailed Deployment Guide
+
+See `../DEPLOYMENT-GUIDE.md` for comprehensive deployment instructions, troubleshooting, and configuration details.
+
+---
 
 ## 🏗️ Project Structure
 
