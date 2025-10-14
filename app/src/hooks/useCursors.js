@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './useAuth';
-import { subscribeToCursors, updateCursorPosition, removeCursor, setupCursorCleanup } from '../services/cursors';
+import { 
+  subscribeToCursors, 
+  updateCursorPosition, 
+  initializeUserSession, 
+  removeUserSession 
+} from '../services/cursors';
 import { generateUserColor } from '../utils/helpers';
 import { CURSOR_UPDATE_INTERVAL } from '../utils/constants';
 
@@ -15,21 +20,36 @@ export function useCursors() {
   const [cursors, setCursors] = useState({});
   const [userColor] = useState(() => {
     // Generate color once and keep it consistent
-    return generateUserColor(currentUser?.uid);
+    return currentUser ? generateUserColor(currentUser.uid) : '#000000';
   });
   
   const lastUpdateRef = useRef(0);
   const lastPositionRef = useRef({ x: 0, y: 0 });
+  const initializedRef = useRef(false);
   
-  // Subscribe to cursor updates
+  // Initialize user session and subscribe to cursor updates
   useEffect(() => {
     if (!currentUser) {
       console.log('❌ useCursors: No currentUser');
+      setCursors({});
+      initializedRef.current = false;
       return;
     }
     
     console.log('✅ useCursors: Setting up cursor tracking for', currentUser.uid);
     
+    // Get display name
+    const displayName = currentUser.displayName || 
+                       currentUser.email?.split('@')[0] || 
+                       'Anonymous';
+    
+    // Initialize user session (sets up onDisconnect handler)
+    initializeUserSession(currentUser.uid, displayName, userColor).then(() => {
+      initializedRef.current = true;
+      console.log('✅ User session initialized');
+    });
+    
+    // Subscribe to cursor updates
     const unsubscribe = subscribeToCursors((allCursors) => {
       console.log('📍 Received cursors:', allCursors);
       
@@ -37,20 +57,22 @@ export function useCursors() {
       const otherCursors = { ...allCursors };
       delete otherCursors[currentUser.uid];
       
-      console.log('👥 Other users cursors:', otherCursors);
+      console.log('👥 Other users cursors:', Object.keys(otherCursors).length, 'users');
       setCursors(otherCursors);
     });
     
-    // Set up automatic cleanup on disconnect
-    setupCursorCleanup(currentUser.uid);
-    
+    // Cleanup function
     return () => {
       console.log('🧹 Cleaning up cursor for', currentUser.uid);
       unsubscribe();
-      // Remove cursor on unmount
-      removeCursor(currentUser.uid);
+      
+      // Remove user session on unmount
+      if (initializedRef.current) {
+        removeUserSession(currentUser.uid);
+        initializedRef.current = false;
+      }
     };
-  }, [currentUser]);
+  }, [currentUser, userColor]);
   
   /**
    * Update cursor position (throttled)
@@ -58,7 +80,7 @@ export function useCursors() {
    * @param {number} y - Canvas Y coordinate
    */
   const updateCursor = useCallback((x, y) => {
-    if (!currentUser) return;
+    if (!currentUser || !initializedRef.current) return;
     
     const now = Date.now();
     const timeSinceLastUpdate = now - lastUpdateRef.current;
@@ -80,16 +102,9 @@ export function useCursors() {
     lastPositionRef.current = { x, y };
     lastUpdateRef.current = now;
     
-    // Get display name
-    const displayName = currentUser.displayName || 
-                       currentUser.email?.split('@')[0] || 
-                       'Anonymous';
-    
-    console.log('🖱️ Updating cursor:', { x, y, displayName, userColor });
-    
-    // Update in Realtime Database
-    updateCursorPosition(currentUser.uid, x, y, displayName, userColor);
-  }, [currentUser, userColor]);
+    // Update in Realtime Database (only position, not full user data)
+    updateCursorPosition(currentUser.uid, x, y);
+  }, [currentUser]);
   
   return {
     cursors,

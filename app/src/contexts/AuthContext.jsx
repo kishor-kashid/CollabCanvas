@@ -4,6 +4,7 @@ import { createContext, useState, useEffect } from 'react';
 import { auth } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import * as authService from '../services/auth';
+import { removeUserSession } from '../services/cursors';
 
 export const AuthContext = createContext(null);
 
@@ -18,12 +19,22 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     // Listen to auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log('🔐 Auth state changed:', user ? user.uid : 'null');
+      
+      // If user logged out, clean up their session
+      if (!user && currentUser) {
+        console.log('🧹 User logged out, cleaning up session for:', currentUser.uid);
+        removeUserSession(currentUser.uid).catch(err => {
+          console.error('Failed to cleanup session:', err);
+        });
+      }
+      
       setCurrentUser(user);
       setLoading(false);
     });
     
     return unsubscribe;
-  }, []);
+  }, [currentUser]);
   
   // Sign up with email and password
   const signup = async (email, password, displayName) => {
@@ -62,6 +73,13 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       setError(null);
+      
+      // Clean up user session before signing out
+      if (currentUser) {
+        console.log('🧹 Cleaning up session before logout for:', currentUser.uid);
+        await removeUserSession(currentUser.uid);
+      }
+      
       await authService.signOut();
     } catch (err) {
       setError(err.message);

@@ -1,13 +1,15 @@
-// Presence Service - To be implemented in PR #7
-// Functions: setUserOnline, setUserOffline, subscribeToPresence
+// Presence Service - Manages user presence using the cursor service
+// This service acts as a wrapper around the cursor service to avoid duplication
 
-import { rtdb } from './firebase';
-import { ref, set, onValue, onDisconnect, remove } from 'firebase/database';
-
-const CANVAS_ID = 'global-canvas-v1';
+import { 
+  initializeUserSession, 
+  removeUserSession, 
+  subscribeToCursors 
+} from './cursors';
 
 /**
  * Set user as online in the presence system
+ * This now uses the shared cursor service to avoid conflicts
  * @param {string} userId - User ID
  * @param {string} displayName - User display name
  * @param {string} color - User cursor color
@@ -15,19 +17,8 @@ const CANVAS_ID = 'global-canvas-v1';
  */
 export async function setUserOnline(userId, displayName, color) {
   try {
-    const userPresenceRef = ref(rtdb, `sessions/${CANVAS_ID}/${userId}`);
-    
-    // Set user online
-    await set(userPresenceRef, {
-      displayName,
-      cursorColor: color,
-      cursorX: 0,
-      cursorY: 0,
-      lastSeen: Date.now(),
-    });
-    
-    // Auto-remove on disconnect
-    onDisconnect(userPresenceRef).remove();
+    console.log('🟢 Setting user online:', userId, displayName);
+    await initializeUserSession(userId, displayName, color);
   } catch (error) {
     console.error('Set user online error:', error);
     throw error;
@@ -41,8 +32,8 @@ export async function setUserOnline(userId, displayName, color) {
  */
 export async function setUserOffline(userId) {
   try {
-    const userPresenceRef = ref(rtdb, `sessions/${CANVAS_ID}/${userId}`);
-    await remove(userPresenceRef);
+    console.log('🔴 Setting user offline:', userId);
+    await removeUserSession(userId);
   } catch (error) {
     console.error('Set user offline error:', error);
     throw error;
@@ -51,37 +42,11 @@ export async function setUserOffline(userId) {
 
 /**
  * Subscribe to presence updates
+ * Uses the shared cursor subscription to avoid duplication
  * @param {function} callback - Callback function to handle presence updates
  * @returns {function} Unsubscribe function
  */
 export function subscribeToPresence(callback) {
-  const presenceRef = ref(rtdb, `sessions/${CANVAS_ID}`);
-  
-  const unsubscribe = onValue(presenceRef, (snapshot) => {
-    const data = snapshot.val() || {};
-    callback(data);
-  });
-  
-  return unsubscribe;
-}
-
-/**
- * Update cursor position
- * @param {string} userId - User ID
- * @param {number} x - Cursor X position
- * @param {number} y - Cursor Y position
- * @returns {Promise<void>}
- */
-export async function updateCursorPosition(userId, x, y) {
-  try {
-    const cursorRef = ref(rtdb, `sessions/${CANVAS_ID}/${userId}`);
-    await set(cursorRef, {
-      cursorX: x,
-      cursorY: y,
-      lastSeen: Date.now(),
-    }, { merge: true });
-  } catch (error) {
-    console.error('Update cursor error:', error);
-  }
+  return subscribeToCursors(callback);
 }
 

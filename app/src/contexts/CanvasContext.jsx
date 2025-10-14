@@ -19,6 +19,7 @@ import {
 import { useCanvas } from '../hooks/useCanvas';
 import { useAuth } from '../hooks/useAuth';
 import * as canvasService from '../services/canvas';
+import { cleanupStaleSessions } from '../services/cursors';
 
 export const CanvasContext = createContext(null);
 
@@ -33,6 +34,12 @@ export function CanvasProvider({ children }) {
   const [shapes, setShapes] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const stageRef = useRef(null);
+  
+  // Clean up stale sessions on mount
+  useEffect(() => {
+    console.log('🧹 Running stale session cleanup on canvas mount...');
+    cleanupStaleSessions(2 * 60 * 1000); // Clean up sessions older than 2 minutes
+  }, []);
   
   // Sync Firestore shapes to local state
   useEffect(() => {
