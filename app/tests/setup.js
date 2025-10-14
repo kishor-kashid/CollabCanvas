@@ -1,24 +1,20 @@
-// Test Setup - To be implemented in PR #8
-// This file sets up the testing environment with Firebase emulators
+// Test Setup - Testing environment configuration
+import '@testing-library/jest-dom';
+import { expect, afterEach, vi } from 'vitest';
+import { cleanup } from '@testing-library/react';
 
-import { beforeAll, afterEach, afterAll } from 'vitest';
+// Mock Firebase modules
+vi.mock('../src/services/firebase', () => ({
+  auth: {
+    currentUser: null,
+  },
+  db: {},
+  rtdb: {},
+}));
 
-// Setup Firebase Emulators before running tests
-beforeAll(async () => {
-  console.log('Setting up Firebase Emulators...');
-  // Configure Firebase emulators:
-  // - Auth Emulator
-  // - Firestore Emulator
-  // - Realtime Database Emulator
-});
-
-// Clean up after each test
+// Runs a cleanup after each test case (e.g. clearing jsdom)
 afterEach(() => {
-  // Clear test data
-});
-
-// Teardown after all tests
-afterAll(async () => {
-  console.log('Tearing down Firebase Emulators...');
+  cleanup();
+  vi.clearAllMocks();
 });
 
