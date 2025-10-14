@@ -6,7 +6,7 @@ import { CanvasContext } from '../../contexts/CanvasContext';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
 import { useCursors } from '../../hooks/useCursors';
 import Shape from './Shape';
-import Cursor from '../Collaboration/Cursor';
+import CursorMarker from '../Collaboration/CursorMarker';
 
 export default function Canvas() {
   const {
@@ -71,16 +71,23 @@ export default function Canvas() {
     const stage = e.target.getStage();
     if (!stage) return;
     
-    // Get pointer position relative to stage
-    const pointerPosition = stage.getPointerPosition();
+    // Get pointer position in canvas coordinates (relative to stage transformation)
+    // This automatically accounts for stage scale and position
+    const pointerPosition = stage.getRelativePointerPosition();
     if (!pointerPosition) return;
     
-    // Convert screen coordinates to canvas coordinates
-    const canvasX = (pointerPosition.x - position.x) / scale;
-    const canvasY = (pointerPosition.y - position.y) / scale;
+    // Debug: Log cursor position every 100 updates
+    if (Math.random() < 0.01) {
+      console.log('📍 My cursor position (canvas coords):', {
+        x: Math.round(pointerPosition.x),
+        y: Math.round(pointerPosition.y),
+        scale: scale.toFixed(2),
+        stagePos: { x: Math.round(position.x), y: Math.round(position.y) }
+      });
+    }
     
-    // Update cursor position in RTDB
-    updateCursor(canvasX, canvasY);
+    // Update cursor position in RTDB (already in canvas coordinates)
+    updateCursor(pointerPosition.x, pointerPosition.y);
   };
   
   // Handle shape selection
@@ -379,33 +386,36 @@ export default function Canvas() {
               canvasHeight={CANVAS_HEIGHT}
             />
           ))}
+          
+          {/* Render other users' cursors inside the stage */}
+          {Object.entries(cursors).map(([userId, cursor]) => {
+            if (!cursor || cursor.cursorX === undefined || cursor.cursorY === undefined) {
+              return null;
+            }
+            
+            // Debug: Log received cursor positions occasionally
+            if (Math.random() < 0.005) {
+              console.log('👁️ Rendering cursor for', cursor.displayName, '(canvas coords):', {
+                x: Math.round(cursor.cursorX),
+                y: Math.round(cursor.cursorY),
+                myScale: scale.toFixed(2),
+                myStagePos: { x: Math.round(position.x), y: Math.round(position.y) }
+              });
+            }
+            
+            return (
+              <CursorMarker
+                key={userId}
+                x={cursor.cursorX}
+                y={cursor.cursorY}
+                color={cursor.cursorColor}
+                displayName={cursor.displayName}
+                stageScale={scale}
+              />
+            );
+          })}
         </Layer>
       </Stage>
-      
-      {/* Render other users' cursors */}
-      {Object.keys(cursors).length > 0 && console.log('🎨 Rendering cursors:', cursors)}
-      {Object.entries(cursors).map(([userId, cursor]) => {
-        if (!cursor || cursor.cursorX === undefined || cursor.cursorY === undefined) {
-          console.warn('⚠️ Invalid cursor data for user:', userId, cursor);
-          return null;
-        }
-        
-        // Convert canvas coordinates to screen coordinates
-        const screenX = cursor.cursorX * scale + position.x;
-        const screenY = cursor.cursorY * scale + position.y;
-        
-        console.log('👆 Rendering cursor for', cursor.displayName, 'at', { screenX, screenY });
-        
-        return (
-          <Cursor
-            key={userId}
-            x={screenX}
-            y={screenY}
-            color={cursor.cursorColor}
-            displayName={cursor.displayName}
-          />
-        );
-      })}
     </div>
   );
 }
