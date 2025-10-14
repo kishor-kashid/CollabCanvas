@@ -4,7 +4,7 @@
 
 ```
 CollabCanvas/
-├── frontend/
+├── app/
 │   ├── public/
 │   │   └── vite.svg
 │   ├── src/
