@@ -1,9 +1,10 @@
 // Shape Component - Renders different shape types on the canvas
 
-import { Rect, Circle, Transformer } from 'react-konva';
+import { Transformer } from 'react-konva';
 import { useRef, useEffect } from 'react';
 import { SHAPE_TYPES } from '../../utils/constants';
 import EditableText from './EditableText';
+import EditableShape from './EditableShape';
 
 export default function Shape({ 
   id,
@@ -32,6 +33,8 @@ export default function Shape({
   onTextChange, // For text editing
   onEditLock, // For text editing lock
   onEditUnlock, // For text editing unlock
+  onColorEditLock, // For color editing lock (rectangles/circles)
+  onColorEditUnlock, // For color editing unlock (rectangles/circles)
   canvasWidth,
   canvasHeight
 }) {
@@ -52,19 +55,22 @@ export default function Shape({
     const x = node.x();
     const y = node.y();
     
-    // Get dimensions based on shape type
-    let shapeWidth, shapeHeight;
-    if (type === SHAPE_TYPES.CIRCLE) {
-      shapeWidth = radius * 2 * scaleX;
-      shapeHeight = radius * 2 * scaleY;
-    } else {
-      shapeWidth = (width || node.width()) * scaleX;
-      shapeHeight = (height || node.height()) * scaleY;
-    }
+    let newX, newY;
     
-    // Constrain within canvas boundaries
-    const newX = Math.max(0, Math.min(x, canvasWidth - shapeWidth));
-    const newY = Math.max(0, Math.min(y, canvasHeight - shapeHeight));
+    if (type === SHAPE_TYPES.CIRCLE) {
+      // For circles, x and y represent the CENTER of the circle
+      // So we constrain based on the radius (scaled)
+      const effectiveRadius = radius * Math.max(scaleX, scaleY);
+      newX = Math.max(effectiveRadius, Math.min(x, canvasWidth - effectiveRadius));
+      newY = Math.max(effectiveRadius, Math.min(y, canvasHeight - effectiveRadius));
+    } else {
+      // For rectangles and text, x and y represent the TOP-LEFT corner
+      // So we constrain based on width and height
+      const shapeWidth = (width || node.width()) * scaleX;
+      const shapeHeight = (height || node.height()) * scaleY;
+      newX = Math.max(0, Math.min(x, canvasWidth - shapeWidth));
+      newY = Math.max(0, Math.min(y, canvasHeight - shapeHeight));
+    }
     
     node.x(newX);
     node.y(newY);
@@ -99,21 +105,32 @@ export default function Shape({
   const renderShape = () => {
     switch (type) {
       case SHAPE_TYPES.RECTANGLE:
-        return (
-          <Rect
-            {...commonProps}
-            width={width}
-            height={height}
-            fill={fill}
-          />
-        );
-      
       case SHAPE_TYPES.CIRCLE:
         return (
-          <Circle
-            {...commonProps}
+          <EditableShape
+            id={id}
+            type={type}
+            x={x}
+            y={y}
+            width={width}
+            height={height}
             radius={radius}
             fill={fill}
+            rotation={rotation}
+            scaleX={scaleX}
+            scaleY={scaleY}
+            isSelected={isSelected}
+            isLocked={isLocked}
+            lockedBy={lockedBy}
+            onSelect={onSelect}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            onTransformStart={onTransformStart}
+            onTransformEnd={onTransformEnd}
+            onColorEditStart={onColorEditLock}
+            onColorEditEnd={onColorEditUnlock}
+            commonProps={commonProps}
+            shapeRef={shapeRef}
           />
         );
       
@@ -152,11 +169,29 @@ export default function Shape({
       
       default:
         return (
-          <Rect
-            {...commonProps}
+          <EditableShape
+            id={id}
+            type={SHAPE_TYPES.RECTANGLE}
+            x={x}
+            y={y}
             width={width}
             height={height}
             fill={fill}
+            rotation={rotation}
+            scaleX={scaleX}
+            scaleY={scaleY}
+            isSelected={isSelected}
+            isLocked={isLocked}
+            lockedBy={lockedBy}
+            onSelect={onSelect}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            onTransformStart={onTransformStart}
+            onTransformEnd={onTransformEnd}
+            onColorEditStart={onColorEditLock}
+            onColorEditEnd={onColorEditUnlock}
+            commonProps={commonProps}
+            shapeRef={shapeRef}
           />
         );
     }

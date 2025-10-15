@@ -1,6 +1,6 @@
 // Canvas Component - Main collaborative canvas with Konva
 
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Stage, Layer, Rect, Line, Text } from 'react-konva';
 import { CanvasContext } from '../../contexts/CanvasContext';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
@@ -8,6 +8,7 @@ import { useCursors } from '../../hooks/useCursors';
 import Shape from './Shape';
 import CursorMarker from '../Collaboration/CursorMarker';
 import TextFormattingToolbar from './TextFormattingToolbar';
+import ColorPicker from './ColorPicker';
 
 export default function Canvas() {
   const {
@@ -32,6 +33,9 @@ export default function Canvas() {
   // Cursor tracking
   const { cursors, updateCursor } = useCursors();
   
+  // Color picker state
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  
   useEffect(() => {
     // Set up performance optimizations
     if (stageRef.current) {
@@ -44,6 +48,13 @@ export default function Canvas() {
   // Handle keyboard events for delete
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Escape key to close color picker
+      if (e.key === 'Escape' && isColorPickerOpen && selectedId) {
+        e.preventDefault();
+        handleColorEditUnlock(selectedId)();
+        return;
+      }
+      
       // Delete or Backspace key
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault();
@@ -57,7 +68,7 @@ export default function Canvas() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, shapes, deleteShape]);
+  }, [selectedId, shapes, deleteShape, isColorPickerOpen]);
   
   // Handle clicking on stage background to deselect
   const handleStageClick = (e) => {
@@ -149,6 +160,30 @@ export default function Canvas() {
   const handleFormatChange = (formatUpdates) => {
     if (selectedId) {
       updateShape(selectedId, formatUpdates);
+    }
+  };
+  
+  // Handle color edit lock (for rectangles/circles)
+  const handleColorEditLock = (id) => async () => {
+    console.log('🎨 Acquiring lock for color editing:', id);
+    const success = await lockShape(id);
+    if (success) {
+      setIsColorPickerOpen(true);
+    }
+    return success;
+  };
+  
+  // Handle color edit unlock (for rectangles/circles)
+  const handleColorEditUnlock = (id) => async () => {
+    console.log('🎨 Releasing lock for color editing:', id);
+    await unlockShape(id);
+    setIsColorPickerOpen(false);
+  };
+  
+  // Handle color change
+  const handleColorChange = (newColor) => {
+    if (selectedId) {
+      updateShape(selectedId, { fill: newColor });
     }
   };
   
@@ -264,6 +299,22 @@ export default function Canvas() {
         <TextFormattingToolbar
           selectedShape={selectedShape}
           onFormatChange={handleFormatChange}
+          position={{
+            x: (selectedShape.x * scale) + position.x,
+            y: (selectedShape.y * scale) + position.y
+          }}
+        />
+      )}
+      
+      {/* Color Picker for Rectangles and Circles */}
+      {isColorPickerOpen && selectedShape && 
+       (selectedShape.type === 'rectangle' || selectedShape.type === 'circle') && 
+       stageRef.current && (
+        <ColorPicker
+          selectedShape={selectedShape}
+          currentColor={selectedShape.fill}
+          onColorChange={handleColorChange}
+          onClose={() => handleColorEditUnlock(selectedId)()}
           position={{
             x: (selectedShape.x * scale) + position.x,
             y: (selectedShape.y * scale) + position.y
@@ -393,6 +444,8 @@ export default function Canvas() {
               onTextChange={handleTextChange(shape.id)}
               onEditLock={handleTextEditLock(shape.id)}
               onEditUnlock={handleTextEditUnlock(shape.id)}
+              onColorEditLock={handleColorEditLock(shape.id)}
+              onColorEditUnlock={handleColorEditUnlock(shape.id)}
               canvasWidth={CANVAS_WIDTH}
               canvasHeight={CANVAS_HEIGHT}
             />

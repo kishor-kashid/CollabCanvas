@@ -2,24 +2,20 @@
 
 import { useContext } from 'react';
 import { CanvasContext } from '../../contexts/CanvasContext';
-import { SHAPE_TYPES } from '../../utils/constants';
+import { SHAPE_TYPES, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
 
 export default function CanvasControls() {
-  const { scale, zoomIn, zoomOut, resetView, addShape, stageRef, position } = useContext(CanvasContext);
+  const { scale, zoomIn, zoomOut, resetView, addShape } = useContext(CanvasContext);
   
-  // Calculate center of current viewport and add shape
+  // Calculate center of canvas (not viewport) and add shape
   const handleAddShape = (shapeType) => {
-    if (stageRef.current) {
-      const stage = stageRef.current;
-      const centerX = (-position.x + window.innerWidth / 2) / scale;
-      const centerY = (-position.y + window.innerHeight / 2) / scale;
-      
-      // Adjust offset based on shape type
-      const offset = shapeType === SHAPE_TYPES.CIRCLE ? 50 : 50;
-      addShape(shapeType, { x: centerX - offset, y: centerY - offset });
-    } else {
-      addShape(shapeType, { x: 100, y: 100 }); // Fallback position
-    }
+    // Always create shapes at the center of the canvas (5000x5000px canvas = center at 2500, 2500)
+    const canvasCenterX = CANVAS_WIDTH / 2;
+    const canvasCenterY = CANVAS_HEIGHT / 2;
+    
+    // Adjust offset based on shape type to center the shape properly
+    const offset = shapeType === SHAPE_TYPES.CIRCLE ? 150 : 150;
+    addShape(shapeType, { x: canvasCenterX - offset, y: canvasCenterY - offset });
   };
   
   return (
@@ -112,7 +108,7 @@ export default function CanvasControls() {
               <span>Text</span>
             </button>
           </div>
-          <p className="text-xs text-gray-500 text-center mt-2">Creates at viewport center</p>
+          <p className="text-xs text-gray-500 text-center mt-2">Creates at canvas center</p>
         </div>
         
         {/* Keyboard Shortcuts */}
