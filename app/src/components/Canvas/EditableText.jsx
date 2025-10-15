@@ -12,12 +12,14 @@ const EditableText = forwardRef(function EditableText({
   text,
   fontSize,
   fontFamily,
+  fontStyle,
   fill,
   rotation,
   scaleX,
   scaleY,
   isSelected,
   isLocked,
+  lockedBy,
   onSelect,
   onDragStart,
   onDragMove,
@@ -25,15 +27,24 @@ const EditableText = forwardRef(function EditableText({
   onTransformStart,
   onTransformEnd,
   onTextChange,
+  onLock,
+  onUnlock,
   commonProps,
 }, textRef) {
   const [isEditing, setIsEditing] = useState(false);
 
-  const handleDoubleClick = (e) => {
+  const handleDoubleClick = async (e) => {
     // Prevent this from triggering selection
     e.cancelBubble = true;
     
-    if (isLocked || isEditing) {
+    // Check if locked by another user
+    if (isLocked) {
+      console.log('⚠️ Cannot edit: Text is being edited by another user');
+      alert('This text is currently being edited by another user. Please wait until they finish.');
+      return;
+    }
+    
+    if (isEditing) {
       return;
     }
 
@@ -43,8 +54,26 @@ const EditableText = forwardRef(function EditableText({
     const stage = textNode.getStage();
     if (!stage) return;
 
+    // Acquire lock before editing
+    if (onLock) {
+      const lockAcquired = await onLock();
+      if (!lockAcquired) {
+        console.log('⚠️ Failed to acquire lock for text editing');
+        alert('Unable to edit this text right now. Please try again.');
+        return;
+      }
+    }
+
     // Set editing state
     setIsEditing(true);
+    
+    // Set up lock refresh interval to keep lock alive during long editing sessions
+    const lockRefreshInterval = setInterval(async () => {
+      if (onLock) {
+        console.log('🔄 Refreshing text editing lock...');
+        await onLock(); // Re-acquire lock to refresh timestamp
+      }
+    }, 3000); // Refresh every 3 seconds (before 5-second timeout)
 
     // Hide text while editing
     textNode.hide();
@@ -53,26 +82,41 @@ const EditableText = forwardRef(function EditableText({
     // Get the exact position and size of the text node
     const textPosition = textNode.getClientRect();
     
+    // Get stage scale to adjust textarea size
+    const stageScale = stage.scaleX();
+    
+    // Calculate proper dimensions with minimum width
+    const minWidth = 300; // Minimum width to see multiple words
+    const minHeight = 100; // Minimum height for comfortable editing
+    const actualWidth = Math.max(textPosition.width, minWidth);
+    const actualHeight = Math.max(textPosition.height, minHeight);
+    
+    // Adjust font size based on stage scale for readability
+    const adjustedFontSize = Math.max(14, fontSize * stageScale);
+    
     // Create textarea element
     const textarea = document.createElement('textarea');
     textarea.value = text || '';
     
     // Apply styles to match text box exactly
+    const currentFontStyle = fontStyle || 'normal';
     Object.assign(textarea.style, {
       position: 'fixed',
       top: textPosition.y + 'px',
       left: textPosition.x + 'px',
-      width: textPosition.width + 'px',
-      height: textPosition.height + 'px',
-      fontSize: fontSize + 'px',
+      width: actualWidth + 'px',
+      height: actualHeight + 'px',
+      fontSize: adjustedFontSize + 'px',
       fontFamily: fontFamily,
+      fontWeight: currentFontStyle.includes('bold') ? 'bold' : 'normal',
+      fontStyle: currentFontStyle.includes('italic') ? 'italic' : 'normal',
       color: fill,
       padding: '10px',
       margin: '0',
       border: '2px solid #2196F3',
       borderRadius: '4px',
       outline: 'none',
-      resize: 'none',
+      resize: 'both',
       backgroundColor: 'white',
       boxShadow: '0 4px 12px rgba(33, 150, 243, 0.4)',
       zIndex: '999999',
@@ -96,14 +140,20 @@ const EditableText = forwardRef(function EditableText({
     });
 
     // Handle save
-    function finishEditing() {
+    async function finishEditing() {
+      // Clear the lock refresh interval
+      clearInterval(lockRefreshInterval);
+      
       const newText = textarea.value.trim();
       
+      // Wait for the update to complete before showing the text
       if (newText && newText !== text) {
-        onTextChange(newText);
+        console.log('📝 Saving new text:', newText);
+        await onTextChange(newText);
       } else if (!newText) {
         // If empty, keep original text
-        onTextChange(text || 'Double-click to edit');
+        console.log('⚠️ Empty text, keeping original');
+        await onTextChange(text || 'Double-click to edit');
       }
       
       if (textarea.parentNode) {
@@ -115,14 +165,22 @@ const EditableText = forwardRef(function EditableText({
       stage.batchDraw();
       
       setIsEditing(false);
+      
+      // Release lock after editing
+      if (onUnlock) {
+        await onUnlock();
+      }
     }
 
     // Keyboard events
-    const handleKeyDown = (e) => {
+    const handleKeyDown = async (e) => {
       // Stop propagation to prevent canvas shortcuts
       e.stopPropagation();
       
       if (e.key === 'Escape') {
+        // Clear the lock refresh interval
+        clearInterval(lockRefreshInterval);
+        
         // Cancel without saving
         if (textarea.parentNode) {
           textarea.parentNode.removeChild(textarea);
@@ -130,9 +188,14 @@ const EditableText = forwardRef(function EditableText({
         textNode.show();
         stage.batchDraw();
         setIsEditing(false);
+        
+        // Release lock on escape
+        if (onUnlock) {
+          await onUnlock();
+        }
       } else if (e.key === 'Enter' && e.ctrlKey) {
         // Save with Ctrl+Enter
-        finishEditing();
+        await finishEditing();
       }
     };
 
@@ -151,6 +214,7 @@ const EditableText = forwardRef(function EditableText({
       text={text || 'Double-click to edit'}
       fontSize={fontSize}
       fontFamily={fontFamily}
+      fontStyle={fontStyle || 'normal'}
       fill={fill}
       rotation={rotation}
       scaleX={scaleX}
@@ -159,13 +223,13 @@ const EditableText = forwardRef(function EditableText({
       align="left"
       verticalAlign="top"
       wrap="word"
-      // Use individual props from commonProps for better control
-      stroke={commonProps?.stroke}
-      strokeWidth={commonProps?.strokeWidth}
+      // Show red border when locked by another user, blue when selected
+      stroke={isLocked ? '#ef4444' : (isSelected ? '#2196F3' : commonProps?.stroke)}
+      strokeWidth={isLocked ? 3 : (isSelected ? 2 : commonProps?.strokeWidth || 0)}
       shadowColor={commonProps?.shadowColor}
       shadowBlur={commonProps?.shadowBlur}
       shadowOpacity={commonProps?.shadowOpacity}
-      opacity={commonProps?.opacity}
+      opacity={isLocked ? 0.7 : commonProps?.opacity}
       draggable={!isLocked && !isEditing}
       listening={!isEditing}
       // Event handlers

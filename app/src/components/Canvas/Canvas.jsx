@@ -7,6 +7,7 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
 import { useCursors } from '../../hooks/useCursors';
 import Shape from './Shape';
 import CursorMarker from '../Collaboration/CursorMarker';
+import TextFormattingToolbar from './TextFormattingToolbar';
 
 export default function Canvas() {
   const {
@@ -122,8 +123,33 @@ export default function Canvas() {
   };
   
   // Handle text change for text shapes
-  const handleTextChange = (id) => (newText) => {
-    updateShape(id, { text: newText });
+  const handleTextChange = (id) => async (newText) => {
+    console.log('💾 Updating text for shape:', id, 'New text:', newText);
+    await updateShape(id, { text: newText });
+    console.log('✅ Text updated successfully');
+  };
+  
+  // Handle text edit start - acquire lock
+  const handleTextEditLock = (id) => async () => {
+    console.log('📝 Acquiring lock for text editing:', id);
+    const success = await lockShape(id);
+    if (!success) {
+      console.warn('⚠️ Could not acquire lock for text editing');
+    }
+    return success;
+  };
+  
+  // Handle text edit end - release lock
+  const handleTextEditUnlock = (id) => async () => {
+    console.log('📝 Releasing lock after text editing:', id);
+    await unlockShape(id);
+  };
+  
+  // Handle format changes for text
+  const handleFormatChange = (formatUpdates) => {
+    if (selectedId) {
+      updateShape(selectedId, formatUpdates);
+    }
   };
   
   // Handle shape transform end - update rotation, scale, and dimensions, release lock
@@ -228,8 +254,23 @@ export default function Canvas() {
     );
   }
   
+  // Get selected shape for formatting toolbar
+  const selectedShape = shapes.find(s => s.id === selectedId);
+
   return (
     <div className="relative w-full h-full overflow-hidden bg-gray-100">
+      {/* Text Formatting Toolbar */}
+      {selectedShape && selectedShape.type === 'text' && stageRef.current && (
+        <TextFormattingToolbar
+          selectedShape={selectedShape}
+          onFormatChange={handleFormatChange}
+          position={{
+            x: (selectedShape.x * scale) + position.x,
+            y: (selectedShape.y * scale) + position.y
+          }}
+        />
+      )}
+      
       {/* Konva Stage */}
       <Stage
         ref={stageRef}
@@ -336,6 +377,7 @@ export default function Canvas() {
               text={shape.text}
               fontSize={shape.fontSize}
               fontFamily={shape.fontFamily}
+              fontStyle={shape.fontStyle}
               fill={shape.fill}
               rotation={shape.rotation || 0}
               scaleX={shape.scaleX || 1}
@@ -349,6 +391,8 @@ export default function Canvas() {
               onTransformStart={handleShapeTransformStart(shape.id)}
               onTransformEnd={handleShapeTransformEnd(shape.id)}
               onTextChange={handleTextChange(shape.id)}
+              onEditLock={handleTextEditLock(shape.id)}
+              onEditUnlock={handleTextEditUnlock(shape.id)}
               canvasWidth={CANVAS_WIDTH}
               canvasHeight={CANVAS_HEIGHT}
             />

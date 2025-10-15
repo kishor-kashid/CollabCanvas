@@ -11,6 +11,8 @@ import {
   DEFAULT_SHAPE_HEIGHT,
   DEFAULT_CIRCLE_RADIUS,
   DEFAULT_SHAPE_FILL,
+  DEFAULT_TEXT_WIDTH,
+  DEFAULT_TEXT_HEIGHT,
   DEFAULT_TEXT_CONTENT,
   DEFAULT_TEXT_SIZE,
   DEFAULT_TEXT_COLOR,
@@ -171,9 +173,10 @@ export function CanvasProvider({ children }) {
             text: DEFAULT_TEXT_CONTENT,
             fontSize: DEFAULT_TEXT_SIZE,
             fontFamily: DEFAULT_TEXT_FONT_FAMILY,
+            fontStyle: 'normal', // Default: no bold or italic
             fill: DEFAULT_TEXT_COLOR,
-            width: 200, // Text box width
-            height: 100, // Text box height (needs to be set for resize to work)
+            width: DEFAULT_TEXT_WIDTH,
+            height: DEFAULT_TEXT_HEIGHT,
           };
           break;
         

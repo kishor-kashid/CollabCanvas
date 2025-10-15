@@ -16,6 +16,7 @@ export default function Shape({
   text, // For text shapes
   fontSize, // For text shapes
   fontFamily, // For text shapes
+  fontStyle, // For text formatting (bold/italic)
   fill,
   rotation = 0,
   scaleX = 1,
@@ -29,6 +30,8 @@ export default function Shape({
   onTransformStart,
   onTransformEnd,
   onTextChange, // For text editing
+  onEditLock, // For text editing lock
+  onEditUnlock, // For text editing unlock
   canvasWidth,
   canvasHeight
 }) {
@@ -126,12 +129,14 @@ export default function Shape({
             text={text}
             fontSize={fontSize}
             fontFamily={fontFamily}
+            fontStyle={fontStyle}
             fill={fill}
             rotation={rotation}
             scaleX={scaleX}
             scaleY={scaleY}
             isSelected={isSelected}
             isLocked={isLocked}
+            lockedBy={lockedBy}
             onSelect={onSelect}
             onDragStart={onDragStart}
             onDragMove={commonProps.onDragMove}
@@ -139,6 +144,8 @@ export default function Shape({
             onTransformStart={onTransformStart}
             onTransformEnd={onTransformEnd}
             onTextChange={onTextChange}
+            onLock={onEditLock}
+            onUnlock={onEditUnlock}
             commonProps={commonProps}
           />
         );

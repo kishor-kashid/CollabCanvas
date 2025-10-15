@@ -19,13 +19,17 @@ export const SHAPE_TYPES = {
   TEXT: 'text',
 };
 
-// Shape defaults
-export const DEFAULT_SHAPE_WIDTH = 100;
-export const DEFAULT_SHAPE_HEIGHT = 100;
-export const DEFAULT_CIRCLE_RADIUS = 50;
+// Shape defaults (3x larger for better visibility)
+export const DEFAULT_SHAPE_WIDTH = 300;
+export const DEFAULT_SHAPE_HEIGHT = 300;
+export const DEFAULT_CIRCLE_RADIUS = 150;
 export const DEFAULT_SHAPE_FILL = '#cccccc'; // Gray fill for rectangles/circles
+
+// Text box specific defaults (4x larger than shapes)
+export const DEFAULT_TEXT_WIDTH = 1200;
+export const DEFAULT_TEXT_HEIGHT = 600;
 export const DEFAULT_TEXT_CONTENT = 'Double-click to edit';
-export const DEFAULT_TEXT_SIZE = 18;
+export const DEFAULT_TEXT_SIZE = 200;
 export const DEFAULT_TEXT_COLOR = '#000000';
 export const DEFAULT_TEXT_FONT_FAMILY = 'Arial';
 
