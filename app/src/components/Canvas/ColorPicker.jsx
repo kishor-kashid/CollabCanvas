@@ -13,8 +13,7 @@ export default function ColorPicker({
   selectedShape, 
   currentColor,
   onColorChange,
-  onClose,
-  position 
+  onClose
 }) {
   const [customColor, setCustomColor] = useState(currentColor || '#cccccc');
   const pickerRef = useRef(null);
@@ -59,12 +58,7 @@ export default function ColorPicker({
   return (
     <div 
       ref={pickerRef}
-      className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-4"
-      style={{
-        left: `${position.x}px`,
-        top: `${position.y - 200}px`, // Adjust to appear above shape
-        minWidth: '280px'
-      }}
+      className="fixed right-4 top-20 z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-80"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">

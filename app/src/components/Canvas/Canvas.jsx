@@ -35,6 +35,7 @@ export default function Canvas() {
   
   // Color picker state
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [editModeShapeId, setEditModeShapeId] = useState(null); // Track which shape is in edit mode
   
   useEffect(() => {
     // Set up performance optimizations
@@ -45,14 +46,84 @@ export default function Canvas() {
     }
   }, [stageRef]);
   
-  // Handle keyboard events for delete
+  // Handle keyboard events for delete and arrow key navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Escape key to close color picker
-      if (e.key === 'Escape' && isColorPickerOpen && selectedId) {
+      // Escape key to close color picker and exit edit mode
+      if (e.key === 'Escape' && isColorPickerOpen && editModeShapeId) {
         e.preventDefault();
-        handleColorEditUnlock(selectedId)();
+        handleColorEditUnlock(editModeShapeId)();
+        deselectAll(); // Deselect completely
         return;
+      }
+      
+      // Arrow keys - Only work in edit mode (when color picker is open)
+      if (editModeShapeId && isColorPickerOpen) {
+        const selectedShape = shapes.find(s => s.id === editModeShapeId);
+        
+        // Only for rectangles and circles, not text
+        if (selectedShape && (selectedShape.type === 'rectangle' || selectedShape.type === 'circle')) {
+          let deltaX = 0;
+          let deltaY = 0;
+          
+          switch (e.key) {
+            case 'ArrowUp':
+              e.preventDefault();
+              deltaY = -50;
+              break;
+            case 'ArrowDown':
+              e.preventDefault();
+              deltaY = 50;
+              break;
+            case 'ArrowLeft':
+              e.preventDefault();
+              deltaX = -50;
+              break;
+            case 'ArrowRight':
+              e.preventDefault();
+              deltaX = 50;
+              break;
+            default:
+              break;
+          }
+          
+          if (deltaX !== 0 || deltaY !== 0) {
+            // Calculate new position
+            let newX = selectedShape.x + deltaX;
+            let newY = selectedShape.y + deltaY;
+            
+            // Apply boundary constraints based on shape type
+            if (selectedShape.type === 'circle') {
+              // For circles, x and y represent the CENTER
+              const effectiveRadius = selectedShape.radius * Math.max(selectedShape.scaleX || 1, selectedShape.scaleY || 1);
+              newX = Math.max(effectiveRadius, Math.min(newX, CANVAS_WIDTH - effectiveRadius));
+              newY = Math.max(effectiveRadius, Math.min(newY, CANVAS_HEIGHT - effectiveRadius));
+            } else {
+              // For rectangles, x and y represent the TOP-LEFT corner
+              // Need to account for rotation using bounding box
+              const shapeWidth = (selectedShape.width || 0) * (selectedShape.scaleX || 1);
+              const shapeHeight = (selectedShape.height || 0) * (selectedShape.scaleY || 1);
+              
+              // Simple constraint for non-rotated or slightly rotated shapes
+              if (!selectedShape.rotation || Math.abs(selectedShape.rotation) < 5) {
+                newX = Math.max(0, Math.min(newX, CANVAS_WIDTH - shapeWidth));
+                newY = Math.max(0, Math.min(newY, CANVAS_HEIGHT - shapeHeight));
+              } else {
+                // For rotated rectangles, use a more conservative boundary
+                // Calculate the diagonal to ensure the rotated shape fits
+                const diagonal = Math.sqrt(shapeWidth * shapeWidth + shapeHeight * shapeHeight) / 2;
+                newX = Math.max(diagonal, Math.min(newX, CANVAS_WIDTH - diagonal));
+                newY = Math.max(diagonal, Math.min(newY, CANVAS_HEIGHT - diagonal));
+              }
+            }
+            
+            // Update shape position with constrained values
+            updateShape(editModeShapeId, {
+              x: newX,
+              y: newY
+            });
+          }
+        }
       }
       
       // Delete or Backspace key
@@ -68,12 +139,16 @@ export default function Canvas() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, shapes, deleteShape, isColorPickerOpen]);
+  }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll]);
   
   // Handle clicking on stage background to deselect
   const handleStageClick = (e) => {
     // Check if clicked on empty area (stage itself)
     if (e.target === e.target.getStage()) {
+      // If in edit mode, exit completely
+      if (isColorPickerOpen && editModeShapeId) {
+        handleColorEditUnlock(editModeShapeId)();
+      }
       deselectAll();
     }
   };
@@ -169,6 +244,7 @@ export default function Canvas() {
     const success = await lockShape(id);
     if (success) {
       setIsColorPickerOpen(true);
+      setEditModeShapeId(id); // Enter edit mode
     }
     return success;
   };
@@ -178,6 +254,7 @@ export default function Canvas() {
     console.log('🎨 Releasing lock for color editing:', id);
     await unlockShape(id);
     setIsColorPickerOpen(false);
+    setEditModeShapeId(null); // Exit edit mode
   };
   
   // Handle color change
@@ -308,17 +385,12 @@ export default function Canvas() {
       
       {/* Color Picker for Rectangles and Circles */}
       {isColorPickerOpen && selectedShape && 
-       (selectedShape.type === 'rectangle' || selectedShape.type === 'circle') && 
-       stageRef.current && (
+       (selectedShape.type === 'rectangle' || selectedShape.type === 'circle') && (
         <ColorPicker
           selectedShape={selectedShape}
           currentColor={selectedShape.fill}
           onColorChange={handleColorChange}
           onClose={() => handleColorEditUnlock(selectedId)()}
-          position={{
-            x: (selectedShape.x * scale) + position.x,
-            y: (selectedShape.y * scale) + position.y
-          }}
         />
       )}
       
@@ -436,6 +508,7 @@ export default function Canvas() {
               isSelected={shape.id === selectedId}
               isLocked={shape.isLocked && shape.lockedBy !== currentUserId}
               lockedBy={shape.lockedBy}
+              isInEditMode={shape.id === editModeShapeId && isColorPickerOpen}
               onSelect={() => handleShapeSelect(shape.id)}
               onDragStart={handleShapeDragStart(shape.id)}
               onDragEnd={handleShapeDragEnd(shape.id)}

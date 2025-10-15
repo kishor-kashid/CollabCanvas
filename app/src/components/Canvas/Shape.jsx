@@ -25,6 +25,7 @@ export default function Shape({
   isSelected, 
   isLocked, 
   lockedBy,
+  isInEditMode, // For color editing mode with arrow key navigation
   onSelect,
   onDragStart,
   onDragEnd,
@@ -108,9 +109,12 @@ export default function Shape({
     rotation,
     scaleX,
     scaleY,
-    stroke: isSelected ? '#2196F3' : (isLocked ? '#FF5722' : '#666666'),
+    // Purple border for edit mode, blue for selected, red for locked, gray for normal
+    stroke: isLocked ? '#FF5722' : 
+            (isInEditMode ? '#9333EA' : 
+            (isSelected ? '#2196F3' : '#666666')),
     strokeWidth: isSelected ? 3 : (isLocked ? 2 : 1),
-    shadowColor: isSelected ? '#2196F3' : 'transparent',
+    shadowColor: isInEditMode ? '#9333EA' : (isSelected ? '#2196F3' : 'transparent'),
     shadowBlur: isSelected ? 10 : 0,
     shadowOpacity: isSelected ? 0.5 : 0,
     draggable: !isLocked,
