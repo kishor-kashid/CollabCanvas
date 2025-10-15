@@ -55,7 +55,8 @@ export default function Shape({
     const x = node.x();
     const y = node.y();
     
-    let newX, newY;
+    let newX = x;
+    let newY = y;
     
     if (type === SHAPE_TYPES.CIRCLE) {
       // For circles, x and y represent the CENTER of the circle
@@ -64,12 +65,34 @@ export default function Shape({
       newX = Math.max(effectiveRadius, Math.min(x, canvasWidth - effectiveRadius));
       newY = Math.max(effectiveRadius, Math.min(y, canvasHeight - effectiveRadius));
     } else {
-      // For rectangles and text, x and y represent the TOP-LEFT corner
-      // So we constrain based on width and height
-      const shapeWidth = (width || node.width()) * scaleX;
-      const shapeHeight = (height || node.height()) * scaleY;
-      newX = Math.max(0, Math.min(x, canvasWidth - shapeWidth));
-      newY = Math.max(0, Math.min(y, canvasHeight - shapeHeight));
+      // For rectangles and text, we need to account for rotation
+      // Get the bounding box which includes rotation, scale, and position
+      const box = node.getClientRect({ relativeTo: node.getParent() });
+      
+      // Calculate how much we need to adjust to stay within bounds
+      let adjustX = 0;
+      let adjustY = 0;
+      
+      // Check left boundary
+      if (box.x < 0) {
+        adjustX = -box.x;
+      }
+      // Check right boundary
+      else if (box.x + box.width > canvasWidth) {
+        adjustX = canvasWidth - (box.x + box.width);
+      }
+      
+      // Check top boundary
+      if (box.y < 0) {
+        adjustY = -box.y;
+      }
+      // Check bottom boundary
+      else if (box.y + box.height > canvasHeight) {
+        adjustY = canvasHeight - (box.y + box.height);
+      }
+      
+      newX = x + adjustX;
+      newY = y + adjustY;
     }
     
     node.x(newX);
