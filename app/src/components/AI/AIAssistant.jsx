@@ -8,7 +8,7 @@ import { UI_CONFIG, EXAMPLE_COMMANDS } from '../../utils/aiConstants';
  * Main AI Assistant chat window
  * Handles message display, input, and chat interactions
  */
-export default function AIAssistant({ isOpen, onClose, onSendMessage, messages, isLoading }) {
+export default function AIAssistant({ isOpen, onClose, onSendMessage, onClearHistory, messages, isLoading }) {
   const [input, setInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef(null);
@@ -93,9 +93,8 @@ export default function AIAssistant({ isOpen, onClose, onSendMessage, messages, 
           {/* Clear history button */}
           <button
             onClick={() => {
-              if (window.confirm('Clear all chat history?')) {
-                // TODO: Implement clear history
-                console.log('Clear history');
+              if (window.confirm('Clear all chat history? This cannot be undone.')) {
+                onClearHistory?.();
               }
             }}
             className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"

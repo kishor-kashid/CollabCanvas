@@ -15,6 +15,7 @@ import AIAssistant from '../AI/AIAssistant';
 import { streamChatCompletion, handleFunctionCalls } from '../../services/aiService';
 import { getToolSchemas, executeTool } from '../../services/aiTools';
 import { serializeCanvasState } from '../../services/aiHelpers';
+import { loadMessages, saveMessage, clearHistory } from '../../services/chatHistory';
 
 export default function Canvas() {
   const {
@@ -57,6 +58,8 @@ export default function Canvas() {
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [aiMessages, setAiMessages] = useState([]);
   const [isAILoading, setIsAILoading] = useState(false);
+  const [isChatHistoryLoading, setIsChatHistoryLoading] = useState(false);
+  const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
   
   useEffect(() => {
     // Set up performance optimizations
@@ -66,6 +69,30 @@ export default function Canvas() {
       stage.listening(true);
     }
   }, [stageRef]);
+  
+  // Load chat history when chat opens
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (isAIChatOpen && currentUserId && !hasLoadedHistory) {
+        setIsChatHistoryLoading(true);
+        try {
+          console.log('📖 Loading chat history for user:', currentUserId);
+          const messages = await loadMessages(currentUserId, 50);
+          console.log('📖 Loaded messages:', messages.length);
+          if (messages.length > 0) {
+            setAiMessages(messages);
+          }
+          setHasLoadedHistory(true);
+        } catch (error) {
+          console.error('Failed to load chat history:', error);
+        } finally {
+          setIsChatHistoryLoading(false);
+        }
+      }
+    };
+    
+    loadChatHistory();
+  }, [isAIChatOpen, currentUserId, hasLoadedHistory]);
   
   // Handle keyboard events for delete and arrow key navigation
   useEffect(() => {
@@ -748,6 +775,18 @@ export default function Canvas() {
       <AIAssistant 
         isOpen={isAIChatOpen}
         onClose={() => setIsAIChatOpen(false)}
+        onClearHistory={async () => {
+          try {
+            console.log('🗑️ Clearing chat history for user:', currentUserId);
+            await clearHistory(currentUserId);
+            setAiMessages([]);
+            setHasLoadedHistory(false); // Allow reloading
+            console.log('✅ Chat history cleared');
+          } catch (error) {
+            console.error('❌ Failed to clear chat history:', error);
+            alert('Failed to clear chat history. Please try again.');
+          }
+        }}
         onSendMessage={async (message) => {
           // Add user message
           const userMessage = {
@@ -757,6 +796,13 @@ export default function Canvas() {
           };
           setAiMessages(prev => [...prev, userMessage]);
           setIsAILoading(true);
+          
+          // Save user message to Firestore
+          try {
+            await saveMessage(currentUserId, userMessage);
+          } catch (error) {
+            console.error('Failed to save user message:', error);
+          }
           
           try {
             // Prepare conversation history
@@ -893,12 +939,21 @@ export default function Canvas() {
                         finalResponse += chunk.content;
                       }
                     },
-                    (finalResult) => {
-                      setAiMessages(prev => [...prev, {
+                    async (finalResult) => {
+                      const assistantMessage = {
                         role: 'assistant',
                         content: finalResponse,
                         timestamp: Date.now(),
-                      }]);
+                      };
+                      setAiMessages(prev => [...prev, assistantMessage]);
+                      
+                      // Save assistant message to Firestore
+                      try {
+                        await saveMessage(currentUserId, assistantMessage);
+                      } catch (error) {
+                        console.error('Failed to save assistant message:', error);
+                      }
+                      
                       setIsAILoading(false);
                     },
                     (error) => {
@@ -913,14 +968,26 @@ export default function Canvas() {
                   );
                 } else {
                   // No function calls, just finish streaming
+                  let finalMessage = null;
                   setAiMessages(prev => {
                     const newMessages = [...prev];
                     const lastMessage = newMessages[newMessages.length - 1];
                     if (lastMessage && lastMessage.role === 'assistant') {
                       lastMessage.isStreaming = false;
+                      finalMessage = lastMessage;
                     }
                     return [...newMessages];
                   });
+                  
+                  // Save assistant message to Firestore
+                  if (finalMessage) {
+                    try {
+                      await saveMessage(currentUserId, finalMessage);
+                    } catch (error) {
+                      console.error('Failed to save assistant message:', error);
+                    }
+                  }
+                  
                   setIsAILoading(false);
                 }
               },
