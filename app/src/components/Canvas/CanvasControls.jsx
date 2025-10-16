@@ -6,7 +6,8 @@ import { SHAPE_TYPES, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants'
 
 export default function CanvasControls() {
   const { 
-    scale, 
+    scale,
+    position,
     zoomIn, 
     zoomOut, 
     resetView, 
@@ -17,15 +18,36 @@ export default function CanvasControls() {
   const [isExporting, setIsExporting] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
   
-  // Calculate center of canvas (not viewport) and add shape
-  const handleAddShape = (shapeType) => {
-    // Always create shapes at the center of the canvas (5000x5000px canvas = center at 2500, 2500)
-    const canvasCenterX = CANVAS_WIDTH / 2;
-    const canvasCenterY = CANVAS_HEIGHT / 2;
+  // Calculate viewport center in canvas coordinates, clamped to canvas bounds
+  const getViewportCenterInCanvas = () => {
+    // Viewport center in screen coordinates
+    const viewportCenterX = window.innerWidth / 2;
+    const viewportCenterY = window.innerHeight / 2;
     
-    // Adjust offset based on shape type to center the shape properly
+    // Convert screen coordinates to canvas coordinates
+    // Formula: canvasCoord = (screenCoord - stagePosition) / scale
+    const canvasX = (viewportCenterX - position.x) / scale;
+    const canvasY = (viewportCenterY - position.y) / scale;
+    
+    // Clamp to canvas boundaries
+    const clampedX = Math.max(0, Math.min(CANVAS_WIDTH, canvasX));
+    const clampedY = Math.max(0, Math.min(CANVAS_HEIGHT, canvasY));
+    
+    return { x: clampedX, y: clampedY };
+  };
+  
+  // Add shape at viewport center (or nearest canvas edge if viewport is outside)
+  const handleAddShape = (shapeType) => {
+    const { x, y } = getViewportCenterInCanvas();
+    
+    // Adjust offset based on shape type to center the shape properly at the calculated position
     const offset = shapeType === SHAPE_TYPES.CIRCLE ? 150 : 150;
-    addShape(shapeType, { x: canvasCenterX - offset, y: canvasCenterY - offset });
+    
+    // Ensure the shape stays within canvas bounds even after applying offset
+    const finalX = Math.max(0, Math.min(CANVAS_WIDTH - offset * 2, x - offset));
+    const finalY = Math.max(0, Math.min(CANVAS_HEIGHT - offset * 2, y - offset));
+    
+    addShape(shapeType, { x: finalX, y: finalY });
   };
   
   // Download full canvas as PNG at 0.5 pixel ratio
@@ -177,7 +199,7 @@ export default function CanvasControls() {
               <span>Text</span>
             </button>
           </div>
-          <p className="text-xs text-gray-500 text-center mt-2">Creates at canvas center</p>
+          <p className="text-xs text-gray-500 text-center mt-2">Creates at viewport center</p>
         </div>
         
         {/* Export Section */}

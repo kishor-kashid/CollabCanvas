@@ -1,7 +1,7 @@
 // Constants - Configuration values for the application
 
 // Canvas dimensions (5000x5000px bounded space)
-export const CANVAS_WIDTH = 30000;
+export const CANVAS_WIDTH = 40000;
 export const CANVAS_HEIGHT = 20000;
 
 // Viewport dimensions (visible area)

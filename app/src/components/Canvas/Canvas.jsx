@@ -10,6 +10,8 @@ import CursorMarker from '../Collaboration/CursorMarker';
 import TextFormattingToolbar from './TextFormattingToolbar';
 import ColorPicker from './ColorPicker';
 import SelectionRectangle from './SelectionRectangle';
+import AIChatButton from '../AI/AIChatButton';
+import AIAssistant from '../AI/AIAssistant';
 
 export default function Canvas() {
   const {
@@ -46,6 +48,11 @@ export default function Canvas() {
   const [isDrawingSelection, setIsDrawingSelection] = useState(false);
   const [selectionStart, setSelectionStart] = useState(null);
   const [isExportingSelection, setIsExportingSelection] = useState(false);
+  
+  // AI Chat state
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [aiMessages, setAiMessages] = useState([]);
+  const [isAILoading, setIsAILoading] = useState(false);
   
   useEffect(() => {
     // Set up performance optimizations
@@ -727,6 +734,44 @@ export default function Canvas() {
           )}
         </Layer>
       </Stage>
+      
+      {/* AI Chat Components */}
+      <AIChatButton 
+        onClick={() => {
+          console.log('🤖 AI Chat Button clicked! Current state:', isAIChatOpen);
+          setIsAIChatOpen(!isAIChatOpen);
+          console.log('🤖 New state will be:', !isAIChatOpen);
+        }}
+        isOpen={isAIChatOpen}
+      />
+      
+      <AIAssistant 
+        isOpen={isAIChatOpen}
+        onClose={() => setIsAIChatOpen(false)}
+        onSendMessage={(message) => {
+          // Add user message
+          setAiMessages(prev => [...prev, {
+            role: 'user',
+            content: message,
+            timestamp: Date.now(),
+          }]);
+          
+          // TODO: Will integrate with OpenAI in PR #13
+          setIsAILoading(true);
+          
+          // Temporary mock response
+          setTimeout(() => {
+            setAiMessages(prev => [...prev, {
+              role: 'assistant',
+              content: 'AI integration coming in PR #13! For now, this is a placeholder response.',
+              timestamp: Date.now(),
+            }]);
+            setIsAILoading(false);
+          }, 1000);
+        }}
+        messages={aiMessages}
+        isLoading={isAILoading}
+      />
     </div>
   );
 }
