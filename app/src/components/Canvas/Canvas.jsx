@@ -12,6 +12,9 @@ import ColorPicker from './ColorPicker';
 import SelectionRectangle from './SelectionRectangle';
 import AIChatButton from '../AI/AIChatButton';
 import AIAssistant from '../AI/AIAssistant';
+import { streamChatCompletion, handleFunctionCalls } from '../../services/aiService';
+import { getToolSchemas, executeTool } from '../../services/aiTools';
+import { serializeCanvasState } from '../../services/aiHelpers';
 
 export default function Canvas() {
   const {
@@ -28,6 +31,7 @@ export default function Canvas() {
     deleteShape,
     lockShape,
     unlockShape,
+    addShape,
     loading,
     isOnline,
     currentUserId,
@@ -737,37 +741,211 @@ export default function Canvas() {
       
       {/* AI Chat Components */}
       <AIChatButton 
-        onClick={() => {
-          console.log('🤖 AI Chat Button clicked! Current state:', isAIChatOpen);
-          setIsAIChatOpen(!isAIChatOpen);
-          console.log('🤖 New state will be:', !isAIChatOpen);
-        }}
+        onClick={() => setIsAIChatOpen(!isAIChatOpen)}
         isOpen={isAIChatOpen}
       />
       
       <AIAssistant 
         isOpen={isAIChatOpen}
         onClose={() => setIsAIChatOpen(false)}
-        onSendMessage={(message) => {
+        onSendMessage={async (message) => {
           // Add user message
-          setAiMessages(prev => [...prev, {
+          const userMessage = {
             role: 'user',
             content: message,
             timestamp: Date.now(),
-          }]);
-          
-          // TODO: Will integrate with OpenAI in PR #13
+          };
+          setAiMessages(prev => [...prev, userMessage]);
           setIsAILoading(true);
           
-          // Temporary mock response
-          setTimeout(() => {
+          try {
+            // Prepare conversation history
+            const conversationHistory = aiMessages.map(msg => ({
+              role: msg.role,
+              content: msg.content,
+            }));
+            
+            // Add current canvas state to context
+            const canvasState = serializeCanvasState(shapes, selectedId);
+            const systemContext = `Current canvas state: ${JSON.stringify(canvasState)}`;
+            
+            conversationHistory.push({
+              role: 'system',
+              content: systemContext,
+            });
+            
+            conversationHistory.push({
+              role: 'user',
+              content: message,
+            });
+            
+            // Prepare for streaming response
+            let aiResponseContent = '';
+            const aiMessageIndex = aiMessages.length + 1;
+            
+            // Stream the response
+            await streamChatCompletion(
+              conversationHistory,
+              getToolSchemas(),
+              // onChunk callback
+              (chunk) => {
+                if (chunk.type === 'content') {
+                  aiResponseContent += chunk.content;
+                  
+                  // Update streaming message
+                  setAiMessages(prev => {
+                    const newMessages = [...prev];
+                    const existingIndex = newMessages.findIndex((m, i) => i === aiMessageIndex && m.role === 'assistant');
+                    
+                    if (existingIndex >= 0) {
+                      newMessages[existingIndex] = {
+                        ...newMessages[existingIndex],
+                        content: aiResponseContent,
+                        isStreaming: true,
+                      };
+                    } else {
+                      newMessages.push({
+                        role: 'assistant',
+                        content: aiResponseContent,
+                        timestamp: Date.now(),
+                        isStreaming: true,
+                      });
+                    }
+                    
+                    return newMessages;
+                  });
+                }
+              },
+              // onComplete callback
+              async (result) => {
+                console.log('🤖 Stream complete:', result);
+                
+                // Handle function calls if any
+                if (result.toolCalls && result.toolCalls.length > 0) {
+                  console.log('🔧 Executing tool calls:', result.toolCalls);
+                  
+                  // Show function execution in progress
+                  const functionMessages = result.toolCalls.map(tc => ({
+                    name: tc.function.name,
+                    status: 'executing',
+                  }));
+                  
+                  setAiMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastMessage = newMessages[newMessages.length - 1];
+                    if (lastMessage && lastMessage.role === 'assistant') {
+                      lastMessage.functionCalls = functionMessages;
+                      lastMessage.isStreaming = false;
+                    }
+                    return [...newMessages];
+                  });
+                  
+                  // Execute the tools
+                  const canvasContext = {
+                    shapes,
+                    selectedId,
+                    currentUserId,
+                    addShape,
+                    updateShape,
+                    deleteShape,
+                    selectShape,
+                  };
+                  
+                  const toolResults = await handleFunctionCalls(
+                    result.toolCalls,
+                    async (toolName, params) => {
+                      return await executeTool(toolName, params, canvasContext);
+                    }
+                  );
+                  
+                  // Update function call status
+                  setAiMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastMessage = newMessages[newMessages.length - 1];
+                    if (lastMessage && lastMessage.role === 'assistant' && lastMessage.functionCalls) {
+                      lastMessage.functionCalls = lastMessage.functionCalls.map((fc, i) => ({
+                        ...fc,
+                        status: 'success',
+                        result: toolResults[i]?.content || 'Done',
+                      }));
+                    }
+                    return [...newMessages];
+                  });
+                  
+                  // Send tool results back to AI for final response
+                  const followUpMessages = [
+                    ...conversationHistory,
+                    {
+                      role: 'assistant',
+                      content: result.content || '',
+                      tool_calls: result.toolCalls,
+                    },
+                    ...toolResults,
+                  ];
+                  
+                  // Get final AI response
+                  let finalResponse = '';
+                  await streamChatCompletion(
+                    followUpMessages,
+                    getToolSchemas(),
+                    (chunk) => {
+                      if (chunk.type === 'content') {
+                        finalResponse += chunk.content;
+                      }
+                    },
+                    (finalResult) => {
+                      setAiMessages(prev => [...prev, {
+                        role: 'assistant',
+                        content: finalResponse,
+                        timestamp: Date.now(),
+                      }]);
+                      setIsAILoading(false);
+                    },
+                    (error) => {
+                      console.error('Final response error:', error);
+                      setAiMessages(prev => [...prev, {
+                        role: 'assistant',
+                        content: 'Completed the actions successfully!',
+                        timestamp: Date.now(),
+                      }]);
+                      setIsAILoading(false);
+                    }
+                  );
+                } else {
+                  // No function calls, just finish streaming
+                  setAiMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastMessage = newMessages[newMessages.length - 1];
+                    if (lastMessage && lastMessage.role === 'assistant') {
+                      lastMessage.isStreaming = false;
+                    }
+                    return [...newMessages];
+                  });
+                  setIsAILoading(false);
+                }
+              },
+              // onError callback
+              (error) => {
+                console.error('🚨 AI Error:', error);
+                setAiMessages(prev => [...prev, {
+                  role: 'assistant',
+                  content: error || 'Sorry, I encountered an error. Please try again.',
+                  timestamp: Date.now(),
+                  isError: true,
+                }]);
+                setIsAILoading(false);
+              }
+            );
+          } catch (error) {
+            console.error('🚨 Message send error:', error);
             setAiMessages(prev => [...prev, {
               role: 'assistant',
-              content: 'AI integration coming in PR #13! For now, this is a placeholder response.',
+              content: 'Sorry, I encountered an error. Please try again.',
               timestamp: Date.now(),
+              isError: true,
             }]);
             setIsAILoading(false);
-          }, 1000);
+          }
         }}
         messages={aiMessages}
         isLoading={isAILoading}

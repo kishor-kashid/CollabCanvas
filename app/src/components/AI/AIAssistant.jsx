@@ -9,8 +9,6 @@ import { UI_CONFIG, EXAMPLE_COMMANDS } from '../../utils/aiConstants';
  * Handles message display, input, and chat interactions
  */
 export default function AIAssistant({ isOpen, onClose, onSendMessage, messages, isLoading }) {
-  console.log('🤖 AIAssistant render - isOpen:', isOpen, 'messages:', messages?.length);
-  
   const [input, setInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef(null);

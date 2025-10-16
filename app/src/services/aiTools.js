@@ -331,43 +331,52 @@ async function executeCreateShape(params, context) {
     // Validate and process position
     const position = validatePosition(x, y);
     
-    // Prepare shape data
-    const shapeData = {
-      type: shapeType,
-      ...position,
-    };
+    // Create shape via context (creates with default properties)
+    const newShapeId = await context.addShape(shapeType, position);
+    
+    if (!newShapeId) {
+      throw new Error('Failed to create shape');
+    }
+    
+    // Prepare updates for the shape
+    const updates = {};
     
     // Add type-specific properties
     if (shapeType === 'rectangle') {
       if (width && height) {
         const dims = validateDimensions(width, height);
-        shapeData.width = dims.width;
-        shapeData.height = dims.height;
+        updates.width = dims.width;
+        updates.height = dims.height;
       }
     } else if (shapeType === 'circle') {
       if (radius) {
-        shapeData.radius = Math.max(5, Math.min(1000, radius));
+        updates.radius = Math.max(5, Math.min(1000, radius));
       }
     } else if (shapeType === 'text') {
-      shapeData.text = text || 'New Text';
+      if (text) {
+        updates.text = text;
+      }
       if (fontSize) {
-        shapeData.fontSize = Math.max(8, Math.min(200, fontSize));
+        updates.fontSize = Math.max(8, Math.min(200, fontSize));
       }
     }
     
     // Add color if specified
     if (fill) {
-      shapeData.fill = parseColor(fill);
+      updates.fill = parseColor(fill);
     }
     
-    // Create shape via context
-    await context.addShape(shapeType, position);
+    // Apply updates to the newly created shape
+    if (Object.keys(updates).length > 0) {
+      await context.updateShape(newShapeId, updates);
+    }
     
     return {
       success: true,
-      message: `Created ${shapeType} at position (${Math.round(position.x)}, ${Math.round(position.y)})`,
+      message: `Created ${fill ? parseColor(fill) + ' ' : ''}${shapeType} at position (${Math.round(position.x)}, ${Math.round(position.y)})`,
       shapeType,
       position,
+      shapeId: newShapeId,
     };
   } catch (error) {
     console.error('Error in executeCreateShape:', error);

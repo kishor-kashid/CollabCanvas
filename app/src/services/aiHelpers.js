@@ -1,6 +1,6 @@
 // AI Helpers - Utility functions for AI canvas operations
 
-import { COLOR_MAP, VALIDATION, CANVAS_WIDTH, CANVAS_HEIGHT } from '../utils/aiConstants';
+import { COLOR_MAP, VALIDATION } from '../utils/aiConstants';
 import { CANVAS_WIDTH as CANVAS_W, CANVAS_HEIGHT as CANVAS_H } from '../utils/constants';
 
 /**

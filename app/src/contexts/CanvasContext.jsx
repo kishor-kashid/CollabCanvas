@@ -138,7 +138,7 @@ export function CanvasProvider({ children }) {
   
   // Add a new shape (syncs to Firestore)
   const addShape = async (type = SHAPE_TYPES.RECTANGLE, position = null) => {
-    if (!currentUser) return;
+    if (!currentUser) return null;
     
     try {
       const baseShape = {
@@ -195,8 +195,10 @@ export function CanvasProvider({ children }) {
       
       await canvasService.createShape(newShape, currentUser.uid);
       setSelectedId(newShape.id);
+      return newShape.id; // Return the new shape ID
     } catch (error) {
       console.error('Error adding shape:', error);
+      return null;
     }
   };
   

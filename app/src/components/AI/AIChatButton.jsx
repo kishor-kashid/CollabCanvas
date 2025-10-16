@@ -31,10 +31,7 @@ export default function AIChatButton({ onClick, isOpen }) {
 
       {/* Button */}
       <button
-        onClick={(e) => {
-          console.log('🤖 Button element clicked', { isOpen });
-          onClick(e);
-        }}
+        onClick={onClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className={`
