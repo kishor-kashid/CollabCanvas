@@ -8,7 +8,7 @@ import { UI_CONFIG, EXAMPLE_COMMANDS } from '../../utils/aiConstants';
  * Main AI Assistant chat window
  * Handles message display, input, and chat interactions
  */
-export default function AIAssistant({ isOpen, onClose, onSendMessage, onClearHistory, messages, isLoading }) {
+export default function AIAssistant({ isOpen, onClose, onSendMessage, onClearHistory, onRetry, messages, isLoading }) {
   const [input, setInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef(null);
@@ -165,6 +165,17 @@ export default function AIAssistant({ isOpen, onClose, onSendMessage, onClearHis
             functionCalls={msg.functionCalls}
             isError={msg.isError}
             isStreaming={msg.isStreaming}
+            onRetry={msg.isError && msg.originalMessage ? () => {
+              onRetry?.(msg.originalMessage);
+              setInput(msg.originalMessage);
+              // Auto-submit after a brief delay
+              setTimeout(() => {
+                if (inputRef.current) {
+                  const form = inputRef.current.closest('form');
+                  form?.requestSubmit();
+                }
+              }, 100);
+            } : undefined}
           />
         ))}
 

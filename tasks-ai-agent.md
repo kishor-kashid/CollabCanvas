@@ -364,34 +364,18 @@ collabcanvas/app/src/
 ## PR #15: Advanced Features & Polish
 
 **Branch:** `feature/ai-advanced`  
-**Goal:** Add multi-step planning, rate limiting, and polish
+**Goal:** Add multi-step planning and polish (rate limiting excluded)
 
 ### Tasks:
 
-- [ ] **15.1: Implement Rate Limiting**
-  - Files to create: `src/utils/rateLimiter.js`
-  - Track commands per user per minute
-  - Store in localStorage: `ai_commands_{userId}_{minute}`
-  - Check limit before sending message
-  - Show remaining quota in UI
-  - Display countdown when limited
-  - Reset after 60 seconds
-
-- [ ] **15.2: Add Rate Limit UI**
-  - Files to update: `src/components/AI/AIAssistant.jsx`
-  - Show quota: "8/10 commands remaining this minute"
-  - Disable input when limit hit
-  - Show countdown: "Reset in 23 seconds"
-  - Toast notification when limited
-
-- [ ] **15.3: Implement Multi-Step Planning**
+- [ ] **15.1: Implement Multi-Step Planning**
   - Files to update: `src/services/aiService.js`
   - Detect complex commands (via tool call or AI response)
   - Ask AI to generate plan before execution
   - Return plan to UI for confirmation
   - Update system prompt to explain planning
 
-- [ ] **15.4: Add Plan Confirmation UI**
+- [ ] **15.2: Add Plan Confirmation UI**
   - Files to update: `src/components/AI/AIAssistant.jsx`
   - Show plan in special message bubble
   - "Proceed" and "Cancel" buttons
@@ -399,54 +383,43 @@ collabcanvas/app/src/
   - Show progress: "Step 1/5: Creating username field... ✓"
   - If cancel: acknowledge and wait for new command
 
-- [ ] **15.5: Add Suggested Commands**
-  - Files to update: `src/components/AI/AIAssistant.jsx`
-  - Show 4-6 example commands when chat first opens
-  - Examples: "Create a red circle", "Arrange shapes horizontally"
+- [x] **15.3: Suggested Commands** (Already implemented)
+  - Show example commands when chat first opens
   - Clicking a suggestion inserts it into input
   - Hide after first user message
 
-- [ ] **15.6: Add Typing Indicators**
-  - Files to update: `src/components/AI/AIAssistant.jsx`
+- [x] **15.4: Typing Indicators** (Already implemented)
   - Show "AI is typing..." when waiting for response
-  - Animated dots: "..."
-  - Show during function execution: "AI is creating shapes..."
-  - Clear when response starts streaming
+  - Animated dots
+  - Show during function execution
 
-- [ ] **15.7: Improve Error Messages**
+- [ ] **15.5: Improve Error Messages**
   - Files to update: `src/services/aiService.js`, `src/components/AI/AIAssistant.jsx`
   - API errors: "AI temporarily unavailable. Please try again."
   - Invalid commands: Show examples of valid commands
-  - Ambiguous commands: List matching shapes and ask to clarify
   - Network errors: "Connection lost. Retrying..."
   - Provide "Retry" button for failed messages
 
-- [ ] **15.8: Add Animations & Transitions**
-  - Files to update: All AI component files
+- [x] **15.6: Animations & Transitions** (Already implemented)
   - Chat window: slide in from bottom-right
   - Messages: fade in sequentially
-  - Function call badges: pulse during execution
   - Button hover effects
   - Smooth scroll to new messages
-  - Success/error shake animations
 
-- [ ] **15.9: Add Keyboard Shortcuts**
-  - Files to update: `src/components/AI/AIAssistant.jsx`
+- [ ] **15.7: Add Keyboard Shortcuts**
+  - Files to update: `src/components/Canvas/Canvas.jsx`, `src/components/AI/AIAssistant.jsx`
   - Ctrl/Cmd + K: Open/close chat
   - Escape: Close chat
-  - Enter: Send message
-  - Shift + Enter: New line in input
+  - Enter: Send message (already works)
+  - Shift + Enter: New line in input (already works)
 
 **PR Checklist:**
-- [ ] Rate limiting works (10 commands/min)
-- [ ] Quota displayed in UI
-- [ ] Countdown timer accurate
 - [ ] Multi-step planning works
 - [ ] Plan confirmation UI functional
-- [ ] Suggested commands appear
-- [ ] Typing indicators show
+- [x] Suggested commands appear
+- [x] Typing indicators show
 - [ ] Error messages helpful
-- [ ] Animations smooth
+- [x] Animations smooth
 - [ ] Keyboard shortcuts work
 
 ---
@@ -681,7 +654,4 @@ collabcanvas/app/src/
 
 ---
 
-## Target Score: 9-10 points
-
-With 10+ commands, all categories covered, reliable execution, and excellent UX, this implementation targets the "Excellent" tier of the grading rubric.
 

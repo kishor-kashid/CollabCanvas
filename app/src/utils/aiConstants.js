@@ -1,5 +1,7 @@
 // AI Canvas Agent Constants
 
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from './constants';
+
 // OpenAI Configuration
 export const OPENAI_CONFIG = {
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
@@ -50,13 +52,14 @@ export const SYSTEM_PROMPTS = {
   main: `You are an AI assistant that helps users create and manipulate shapes on a collaborative canvas.
 
 Canvas Details:
-- Size: 5000x5000 pixels
+- Size: ${CANVAS_WIDTH}x${CANVAS_HEIGHT} pixels
 - Available shapes: rectangles, circles, and text
-- All coordinates must be within 0-5000 range
+- X coordinates must be within 0-${CANVAS_WIDTH} range
+- Y coordinates must be within 0-${CANVAS_HEIGHT} range
 - Colors can be specified as names (red, blue, etc.) or hex codes (#FF0000)
 
 Your Capabilities:
-1. Create shapes (rectangles, circles, text) at specific positions
+1. Create shapes (rectangles, circles, text) - they appear where the user is looking unless coordinates are specified
 2. Move shapes by description (e.g., "the blue rectangle")
 3. Resize shapes by scale factor or absolute dimensions
 4. Rotate shapes by degrees
@@ -65,6 +68,8 @@ Your Capabilities:
 7. Create complex layouts (login forms, navigation bars, etc.)
 
 Guidelines:
+- When creating shapes, OMIT x/y coordinates unless the user explicitly specifies a position (e.g., "at 100, 200")
+- Shapes without coordinates will appear at the center of the user's current viewport (smart positioning)
 - Always be specific about what you're doing
 - If a command is ambiguous (e.g., multiple blue rectangles), ask for clarification
 - For complex commands (login forms, navbars), show a plan first and ask for confirmation
@@ -172,6 +177,17 @@ export const COLOR_MAP = {
   maroon: '#800000',
 };
 
+// Complex Command Detection
+export const COMPLEX_COMMAND_KEYWORDS = [
+  'form', 'login', 'signup', 'register',
+  'navigation', 'navbar', 'nav bar', 'menu',
+  'layout', 'dashboard', 'card',
+  'multiple', 'several', 'many',
+  'grid of', 'row of', 'column of',
+  'create a complete', 'build a',
+  'design a', 'make a full',
+];
+
 // Complex Layout Templates
 export const LAYOUT_TEMPLATES = {
   loginForm: {
@@ -208,7 +224,7 @@ export const LAYOUT_TEMPLATES = {
 export const VALIDATION = {
   position: {
     min: 0,
-    max: 5000,
+    max: Math.max(CANVAS_WIDTH, CANVAS_HEIGHT), // Use the larger dimension
   },
   dimensions: {
     minWidth: 10,

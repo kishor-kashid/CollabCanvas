@@ -42,6 +42,32 @@ export function calculateCenter(viewportWidth = 1920, viewportHeight = 1080) {
 }
 
 /**
+ * Calculate the center of the current viewport in canvas coordinates
+ * This is where the user is actually looking on the canvas
+ * @param {Object} viewport - Viewport information {position, scale, width, height}
+ * @returns {Object} {x, y} viewport center in canvas coords
+ */
+export function calculateViewportCenter(viewport) {
+  if (!viewport || !viewport.position || !viewport.scale) {
+    // Fallback to canvas center if no viewport info
+    return calculateCenter();
+  }
+  
+  const { position, scale, width, height } = viewport;
+  
+  // Screen center in pixels
+  const screenCenterX = width / 2;
+  const screenCenterY = height / 2;
+  
+  // Convert screen coordinates to canvas coordinates
+  // Formula: canvasCoord = (screenCoord - stageOffset) / scale
+  const canvasX = (screenCenterX - position.x) / scale;
+  const canvasY = (screenCenterY - position.y) / scale;
+  
+  return { x: canvasX, y: canvasY };
+}
+
+/**
  * Parse position from natural language
  * @param {string} positionString - Position description
  * @param {Object} canvasBounds - Canvas boundaries
@@ -457,6 +483,7 @@ export function serializeCanvasState(shapes, selectedId = null) {
 export default {
   parseColor,
   calculateCenter,
+  calculateViewportCenter,
   parsePosition,
   findShapesByDescription,
   getLargestShape,

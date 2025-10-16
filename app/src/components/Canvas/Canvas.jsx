@@ -97,12 +97,27 @@ export default function Canvas() {
   // Handle keyboard events for delete and arrow key navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Escape key to close color picker and exit edit mode
-      if (e.key === 'Escape' && isColorPickerOpen && editModeShapeId) {
+      // Ctrl/Cmd + K: Toggle AI chat
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        handleColorEditUnlock(editModeShapeId)();
-        deselectAll(); // Deselect completely
+        setIsAIChatOpen(prev => !prev);
         return;
+      }
+      
+      // Escape key: Close AI chat if open, otherwise close color picker
+      if (e.key === 'Escape') {
+        if (isAIChatOpen) {
+          e.preventDefault();
+          setIsAIChatOpen(false);
+          return;
+        }
+        
+        if (isColorPickerOpen && editModeShapeId) {
+          e.preventDefault();
+          handleColorEditUnlock(editModeShapeId)();
+          deselectAll(); // Deselect completely
+          return;
+        }
       }
       
       // Arrow keys - Only work in edit mode (when color picker is open)
@@ -187,7 +202,7 @@ export default function Canvas() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll]);
+  }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll, isAIChatOpen]);
   
   // Handle clicking on stage background to deselect
   const handleStageClick = (e) => {
@@ -787,6 +802,10 @@ export default function Canvas() {
             alert('Failed to clear chat history. Please try again.');
           }
         }}
+        onRetry={(originalMessage) => {
+          // Remove error messages for this retry
+          setAiMessages(prev => prev.filter(msg => !(msg.isError && msg.originalMessage === originalMessage)));
+        }}
         onSendMessage={async (message) => {
           // Add user message
           const userMessage = {
@@ -895,6 +914,13 @@ export default function Canvas() {
                     updateShape,
                     deleteShape,
                     selectShape,
+                    // Add viewport info for smart positioning
+                    viewport: {
+                      position,  // Stage offset
+                      scale,     // Zoom level
+                      width: window.innerWidth,
+                      height: window.innerHeight,
+                    },
                   };
                   
                   const toolResults = await handleFunctionCalls(
@@ -994,22 +1020,48 @@ export default function Canvas() {
               // onError callback
               (error) => {
                 console.error('🚨 AI Error:', error);
+                
+                // Provide user-friendly error messages
+                let errorMessage = 'Sorry, I encountered an error. Please try again.';
+                if (error?.includes('API key')) {
+                  errorMessage = '🔑 AI is not configured. Please add your OpenAI API key to continue.';
+                } else if (error?.includes('network') || error?.includes('fetch')) {
+                  errorMessage = '📡 Connection lost. Please check your internet and try again.';
+                } else if (error?.includes('rate limit')) {
+                  errorMessage = '⏱️ Too many requests. Please wait a moment and try again.';
+                } else if (error?.includes('timeout')) {
+                  errorMessage = '⏱️ Request timed out. The AI is taking too long to respond. Please try again.';
+                } else if (error) {
+                  errorMessage = `❌ ${error}`;
+                }
+                
                 setAiMessages(prev => [...prev, {
                   role: 'assistant',
-                  content: error || 'Sorry, I encountered an error. Please try again.',
+                  content: errorMessage,
                   timestamp: Date.now(),
                   isError: true,
+                  originalMessage: message, // Store for retry
                 }]);
                 setIsAILoading(false);
               }
             );
           } catch (error) {
             console.error('🚨 Message send error:', error);
+            
+            // Provide user-friendly error messages
+            let errorMessage = '❌ Failed to send message. Please try again.';
+            if (error?.message?.includes('API key')) {
+              errorMessage = '🔑 AI is not configured. Please add your OpenAI API key to continue.';
+            } else if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+              errorMessage = '📡 Connection lost. Please check your internet and try again.';
+            }
+            
             setAiMessages(prev => [...prev, {
               role: 'assistant',
-              content: 'Sorry, I encountered an error. Please try again.',
+              content: errorMessage,
               timestamp: Date.now(),
               isError: true,
+              originalMessage: message, // Store for retry
             }]);
             setIsAILoading(false);
           }

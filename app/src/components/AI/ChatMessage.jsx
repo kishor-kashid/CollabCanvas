@@ -6,7 +6,7 @@ import { FUNCTION_STATUS } from '../../utils/aiConstants';
  * Message bubble component for chat interface
  * Displays user messages, AI responses, and function calls
  */
-export default function ChatMessage({ message, isUser, timestamp, functionCalls, isError, isStreaming }) {
+export default function ChatMessage({ message, isUser, timestamp, functionCalls, isError, isStreaming, onRetry }) {
   const formatTime = (ts) => {
     if (!ts) return '';
     const date = new Date(ts);
@@ -73,14 +73,14 @@ export default function ChatMessage({ message, isUser, timestamp, functionCalls,
         )}
 
         {/* Error retry button */}
-        {isError && (
+        {isError && onRetry && (
           <button
-            className="text-xs text-red-600 hover:text-red-700 mt-1 px-2 underline"
-            onClick={() => {
-              // TODO: Implement retry logic
-              console.log('Retry message');
-            }}
+            className="text-xs text-red-600 hover:text-red-700 hover:underline mt-1 px-2 flex items-center gap-1 transition-colors"
+            onClick={onRetry}
           >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
             Retry
           </button>
         )}

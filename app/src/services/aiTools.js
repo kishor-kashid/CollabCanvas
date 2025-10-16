@@ -5,6 +5,7 @@ import { LAYOUT_TEMPLATES } from '../utils/aiConstants';
 import {
   parseColor,
   calculateCenter,
+  calculateViewportCenter,
   parsePosition,
   findShapesByDescription,
   getLargestShape,
@@ -45,11 +46,11 @@ export function getToolSchemas() {
             },
             x: {
               type: 'number',
-              description: 'X coordinate position on the canvas (0-5000). Use special values like "center" for positioning.',
+              description: 'X coordinate position on the canvas. Optional - if omitted, the shape will be created at the center of the user\'s current viewport (where they\'re looking).',
             },
             y: {
               type: 'number',
-              description: 'Y coordinate position on the canvas (0-5000)',
+              description: 'Y coordinate position on the canvas. Optional - if omitted, the shape will be created at the center of the user\'s current viewport (where they\'re looking).',
             },
             width: {
               type: 'number',
@@ -76,7 +77,7 @@ export function getToolSchemas() {
               description: 'Font size in pixels (for text only). Optional, defaults to 24.',
             },
           },
-          required: ['shapeType', 'x', 'y'],
+          required: ['shapeType'],
         },
       },
     },
@@ -329,7 +330,17 @@ async function executeCreateShape(params, context) {
     const { shapeType, x, y, width, height, radius, fill, text, fontSize } = params;
     
     // Validate and process position
-    const position = validatePosition(x, y);
+    // If no position specified, use viewport center instead of canvas center
+    let position;
+    if (x === undefined || y === undefined) {
+      const viewportCenter = calculateViewportCenter(context.viewport);
+      position = validatePosition(
+        x !== undefined ? x : viewportCenter.x,
+        y !== undefined ? y : viewportCenter.y
+      );
+    } else {
+      position = validatePosition(x, y);
+    }
     
     // Create shape via context (creates with default properties)
     const newShapeId = await context.addShape(shapeType, position);
