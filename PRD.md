@@ -1,9 +1,9 @@
-# CollabCanvas MVP - Product Requirements Document
+# CollabCanvas - Product Requirements Document
 
 **Project**: CollabCanvas - Real-Time Collaborative Design Tool  
-**Goal**: Build a solid multiplayer foundation with basic canvas functionality
+**Goal**: Build a solid multiplayer foundation with AI-powered canvas manipulation
 
-**Note**: AI features are intentionally not part of this MVP and will be addressed in future phases.
+**Status**: MVP Complete ✅ | Phase 2: AI Canvas Agent 🚧
 
 ---
 
@@ -410,6 +410,324 @@
 **Deployment:** Firebase Hosting or Vercel
 
 **Rationale:** Given the 24-hour constraint, Firebase provides the fastest path to a working MVP. Authentication is solved, real-time is built-in, and deployment is simple. You can always migrate later if needed.
+
+---
+
+## Phase 2: AI Canvas Agent
+
+### Overview
+
+Build an AI-powered assistant that manipulates the canvas through natural language commands using OpenAI GPT-4 function calling. The AI agent enables users to create, modify, and arrange shapes using conversational language.
+
+### User Stories
+
+**As a designer:**
+- I want to **create shapes using natural language** so that I can quickly prototype designs
+- I want to **modify existing shapes by description** so that I can make changes without manual selection
+- I want to **arrange multiple shapes with layout commands** so that I can organize my design efficiently
+- I want to **create complex layouts with one command** so that I can rapidly build common UI patterns
+- I want my **AI interactions to be visible to collaborators** so that everyone sees the same changes
+- I want to **see my previous AI conversations** so that I can reference what I've created
+
+### Key Features
+
+#### 1. AI Chat Interface
+
+**Must Have:**
+- Floating chat button in bottom-right corner (24px spacing)
+- Robot/AI icon with "Built with AI" tooltip on hover
+- Expandable chat window (~400-450px wide, 25% viewport height)
+- Chat header with close button (X)
+- Scrollable message history
+- Text input field with send button
+- Only visible when authenticated on canvas page
+
+**UI Specifications:**
+- Chat button: Rounded circle with AI icon
+- Chat window: 2-2.25x canvas controls width
+- Messages: User (right, blue) / AI (left, gray)
+- Timestamps for all messages
+- Loading indicators during AI processing
+- Error messages in red with retry option
+
+**Success Criteria:**
+- Chat button appears in correct position
+- Chat window opens/closes smoothly
+- Messages display with proper styling
+- Interface is responsive and accessible
+
+#### 2. Command Categories
+
+**Must Support 8+ Distinct Command Types:**
+
+**Creation Commands (3+ types):**
+- Create by type/position: "Create a red circle at position 200, 300"
+- Create with dimensions: "Make a 150x200 blue rectangle"
+- Create text: "Add text that says 'Welcome' at position 100, 50"
+
+**Manipulation Commands (4+ types):**
+- Move shapes: "Move the blue rectangle to the center"
+- Resize shapes: "Make the circle twice as big"
+- Rotate shapes: "Rotate the selected text 45 degrees"
+- Change color: "Change the rectangle to red"
+
+**Layout Commands (3+ types):**
+- Arrange shapes: "Arrange selected shapes in a horizontal row"
+- Grid layout: "Create a 3x3 grid of squares"
+- Even spacing: "Space these elements evenly"
+
+**Complex Commands (2+ types):**
+- Login form: "Create a login form with username, password fields and submit button"
+- Navigation bar: "Build a navigation bar with Home, About, Services, Contact"
+- Card layout: "Make a card layout with title, image placeholder, and description"
+
+**Success Criteria:**
+- All command types work reliably
+- AI understands variations of commands
+- Commands complete within 2 seconds (single-step)
+- Complex commands show plan before execution
+
+#### 3. AI Function Calling
+
+**Must Have:**
+- OpenAI GPT-4 integration with function calling
+- 10 tool definitions for canvas operations:
+  1. `createShape` - Create rectangle, circle, or text
+  2. `moveShape` - Move by ID or selection
+  3. `resizeShape` - Resize by factor or dimensions
+  4. `rotateShape` - Rotate by degrees
+  5. `changeShapeColor` - Update fill color
+  6. `arrangeShapes` - Layout (horizontal, vertical, grid)
+  7. `getCanvasState` - Return current shapes
+  8. `getSelectedShapes` - Return selection
+  9. `selectShapesByDescription` - Find shapes by description
+  10. `createComplexLayout` - Multi-shape creation
+
+**Function Execution:**
+- Tools map to existing canvas context methods
+- Results return to AI for response generation
+- All operations sync via Firestore to all users
+- Respect existing object locking mechanism
+
+**Success Criteria:**
+- All tools execute correctly
+- Function results feed back to AI
+- Operations sync to all connected users
+- No conflicts with manual editing
+
+#### 4. Shape Identification
+
+**Must Support:**
+- By color: "the blue rectangle"
+- By size: "the largest circle"
+- By type: "the text layer"
+- By position: "the shape in the top-left"
+- By selection: "the selected shape"
+
+**Ambiguity Handling:**
+- If multiple matches, ask user to select specific shape
+- Provide options when clarification needed
+- Default to selected shape when unclear
+
+**Success Criteria:**
+- Correctly identifies single matches
+- Requests clarification for ambiguous queries
+- Handles edge cases (no matches, multiple matches)
+
+#### 5. Multi-Step Planning
+
+**For Complex Commands:**
+1. AI analyzes command and plans steps
+2. Shows plan to user: "I'll create 3 text fields, 1 button, and arrange them vertically"
+3. User confirms with "Proceed" button
+4. AI executes steps sequentially
+5. Shows progress: "Creating username field... Done"
+6. Reports completion: "Login form created successfully"
+
+**Success Criteria:**
+- Plans are clear and accurate
+- User can confirm or cancel
+- Progress is visible during execution
+- Final result matches plan
+
+#### 6. Chat History Persistence
+
+**Must Have:**
+- Save messages to Firestore per user
+- Collection: `/chatHistory/{userId}/messages`
+- Load history on chat window open
+- Auto-scroll to bottom on new messages
+- "Clear History" option in chat menu
+
+**Message Schema:**
+```json
+{
+  "id": "msg_uuid",
+  "userId": "user_id",
+  "role": "user" | "assistant" | "system",
+  "content": "message text",
+  "timestamp": "ISO 8601",
+  "functionCalls": []
+}
+```
+
+**Success Criteria:**
+- History persists across sessions
+- Only user's own messages visible
+- Messages load quickly on open
+- Clear history works correctly
+
+#### 7. Response Streaming
+
+**Must Have:**
+- Stream AI responses word-by-word
+- Show typing indicator while streaming
+- Cancel streaming on user request
+- Handle stream errors gracefully
+
+**Success Criteria:**
+- Responses appear smoothly
+- No lag or stuttering
+- User can interrupt/cancel
+- Errors don't break chat
+
+#### 8. Rate Limiting
+
+**Must Have:**
+- Limit: 10 AI commands per minute per user
+- Show remaining quota in UI
+- Display countdown timer when limit hit
+- Reset counter after 60 seconds
+
+**Success Criteria:**
+- Prevents abuse and excessive costs
+- Clear feedback when limited
+- Countdown accurate
+- Doesn't affect normal usage
+
+#### 9. Error Handling
+
+**Must Handle:**
+- API errors: "AI temporarily unavailable. Try again?"
+- Invalid commands: "I don't understand. Try 'Create a red circle'"
+- Ambiguous commands: "Which blue rectangle? There are 3."
+- Network failures: Automatic retry with backoff
+- Rate limits: Show quota and reset time
+
+**Success Criteria:**
+- All errors handled gracefully
+- Helpful error messages
+- Recovery options provided
+- No crashes or broken states
+
+### Technical Architecture
+
+**Service Layer:**
+- `aiService.js` - OpenAI API integration, streaming, function calling
+- `aiTools.js` - Tool definitions and execution mapping
+- `chatHistory.js` - Firestore persistence for messages
+- `aiHelpers.js` - Shape matching, parsing utilities
+
+**Component Layer:**
+- `AIChatButton.jsx` - Floating button trigger
+- `AIAssistant.jsx` - Main chat interface
+- `ChatMessage.jsx` - Message display component
+
+**Context Integration:**
+- Extend `CanvasContext` to expose methods for AI tools
+- Access shapes, selection, user info from context
+- Use existing canvas operations (addShape, updateShape, etc.)
+
+### Data Model
+
+**Firestore Collection: `chatHistory`**
+
+```
+/chatHistory/{userId}/messages/{messageId}
+{
+  id: string,
+  userId: string,
+  role: 'user' | 'assistant' | 'system',
+  content: string,
+  timestamp: Timestamp,
+  functionCalls: [
+    {
+      name: string,
+      arguments: object,
+      result: string
+    }
+  ]
+}
+```
+
+### Environment Variables
+
+```env
+# OpenAI Configuration
+VITE_OPENAI_API_KEY=sk-proj-...
+VITE_OPENAI_MODEL=gpt-4-turbo-preview
+```
+
+### Performance Targets
+
+- Single-step commands: <2 seconds response time
+- Complex commands: <5 seconds with plan preview
+- Streaming: No noticeable lag
+- Real-time sync: All AI actions visible within 100ms
+- Rate limit: 10 commands/minute
+
+### Grading Rubric Alignment
+
+**Target: 9-10 points (Excellent)**
+- ✅ 10+ distinct command types
+- ✅ All categories covered (creation, manipulation, layout, complex)
+- ✅ Commands are diverse and meaningful
+- ✅ Reliable execution
+- ✅ Natural language understanding
+- ✅ Multi-step complex operations
+- ✅ Real-time collaboration support
+
+### Testing Requirements
+
+**Command Testing:**
+- Test all 10+ command types individually
+- Test command variations and phrasings
+- Test with multiple shapes on canvas
+- Test ambiguous queries and clarifications
+- Test complex multi-step commands
+
+**Integration Testing:**
+- AI actions sync to all users in real-time
+- AI respects object locking
+- Chat history persists correctly
+- Rate limiting works as expected
+- Error handling covers all cases
+
+**Performance Testing:**
+- Response time <2 seconds for simple commands
+- No memory leaks during extended chat
+- Streaming works smoothly
+- Canvas performance unaffected
+
+### Success Metrics
+
+**Functionality:**
+- All 10+ command types work reliably
+- 95%+ command success rate
+- Ambiguous queries handled gracefully
+- Complex commands execute correctly
+
+**Performance:**
+- <2s response time (simple commands)
+- <5s response time (complex commands)
+- Zero crashes or broken states
+- 60 FPS maintained during AI operations
+
+**User Experience:**
+- Intuitive chat interface
+- Clear feedback and progress indicators
+- Helpful error messages
+- Smooth animations and transitions
 
 ---
 

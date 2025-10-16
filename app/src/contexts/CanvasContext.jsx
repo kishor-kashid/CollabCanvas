@@ -37,6 +37,10 @@ export function CanvasProvider({ children }) {
   const [selectedId, setSelectedId] = useState(null);
   const stageRef = useRef(null);
   
+  // Export selection state
+  const [exportSelectionMode, setExportSelectionMode] = useState(false);
+  const [selectionBox, setSelectionBox] = useState(null);
+  
   // Clean up stale sessions on mount
   useEffect(() => {
     console.log('🧹 Running stale session cleanup on canvas mount...');
@@ -291,6 +295,11 @@ export function CanvasProvider({ children }) {
     unlockShape,
     generateShapeId,
     currentUserId: currentUser?.uid,
+    // Export selection state
+    exportSelectionMode,
+    setExportSelectionMode,
+    selectionBox,
+    setSelectionBox,
   };
   
   return (

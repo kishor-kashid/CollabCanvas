@@ -9,6 +9,7 @@ import Shape from './Shape';
 import CursorMarker from '../Collaboration/CursorMarker';
 import TextFormattingToolbar from './TextFormattingToolbar';
 import ColorPicker from './ColorPicker';
+import SelectionRectangle from './SelectionRectangle';
 
 export default function Canvas() {
   const {
@@ -28,6 +29,10 @@ export default function Canvas() {
     loading,
     isOnline,
     currentUserId,
+    exportSelectionMode,
+    setExportSelectionMode,
+    selectionBox,
+    setSelectionBox,
   } = useContext(CanvasContext);
   
   // Cursor tracking
@@ -36,6 +41,11 @@ export default function Canvas() {
   // Color picker state
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [editModeShapeId, setEditModeShapeId] = useState(null); // Track which shape is in edit mode
+  
+  // Selection box drawing state
+  const [isDrawingSelection, setIsDrawingSelection] = useState(false);
+  const [selectionStart, setSelectionStart] = useState(null);
+  const [isExportingSelection, setIsExportingSelection] = useState(false);
   
   useEffect(() => {
     // Set up performance optimizations
@@ -158,6 +168,9 @@ export default function Canvas() {
     const stage = e.target.getStage();
     if (!stage) return;
     
+    // Handle selection box drawing if in export selection mode
+    handleSelectionMouseMove(e);
+    
     // Get pointer position in canvas coordinates (relative to stage transformation)
     // This automatically accounts for stage scale and position
     const pointerPosition = stage.getRelativePointerPosition();
@@ -261,6 +274,128 @@ export default function Canvas() {
   const handleColorChange = (newColor) => {
     if (selectedId) {
       updateShape(selectedId, { fill: newColor });
+    }
+  };
+  
+  // Handle selection box mouse down
+  const handleSelectionMouseDown = (e) => {
+    if (!exportSelectionMode) return;
+    
+    // Only start drawing if clicking on empty area (stage)
+    if (e.target !== e.target.getStage()) return;
+    
+    const stage = e.target.getStage();
+    const pointerPosition = stage.getRelativePointerPosition();
+    
+    setIsDrawingSelection(true);
+    setSelectionStart(pointerPosition);
+    setSelectionBox({ x: pointerPosition.x, y: pointerPosition.y, width: 0, height: 0 });
+  };
+  
+  // Handle selection box mouse move
+  const handleSelectionMouseMove = (e) => {
+    if (!exportSelectionMode || !isDrawingSelection || !selectionStart) return;
+    
+    const stage = e.target.getStage();
+    const pointerPosition = stage.getRelativePointerPosition();
+    
+    setSelectionBox({
+      x: selectionStart.x,
+      y: selectionStart.y,
+      width: pointerPosition.x - selectionStart.x,
+      height: pointerPosition.y - selectionStart.y,
+    });
+  };
+  
+  // Handle selection box mouse up - complete selection and export
+  const handleSelectionMouseUp = async () => {
+    if (!exportSelectionMode || !isDrawingSelection || !selectionBox) return;
+    
+    setIsDrawingSelection(false);
+    
+    // Check if selection is large enough (minimum 50x50 pixels)
+    const width = Math.abs(selectionBox.width);
+    const height = Math.abs(selectionBox.height);
+    
+    if (width < 50 || height < 50) {
+      alert('Selection area is too small. Please draw a larger selection.');
+      setSelectionBox(null);
+      setSelectionStart(null);
+      return;
+    }
+    
+    // Export the selected area
+    await exportSelection();
+    
+    // Reset selection state
+    setSelectionBox(null);
+    setSelectionStart(null);
+    setExportSelectionMode(false);
+  };
+  
+  // Export selected area at full quality
+  const exportSelection = async () => {
+    if (!stageRef?.current || !selectionBox) return;
+    
+    try {
+      // Set exporting state to show loading cursor
+      setIsExportingSelection(true);
+      
+      const stage = stageRef.current;
+      
+      // Normalize selection box (handle negative width/height)
+      const normalizedX = selectionBox.width < 0 ? selectionBox.x + selectionBox.width : selectionBox.x;
+      const normalizedY = selectionBox.height < 0 ? selectionBox.y + selectionBox.height : selectionBox.y;
+      const normalizedWidth = Math.abs(selectionBox.width);
+      const normalizedHeight = Math.abs(selectionBox.height);
+      
+      // Store the selection box to restore later
+      const savedSelectionBox = { ...selectionBox };
+      
+      // Temporarily hide selection box
+      setSelectionBox(null);
+      
+      // Wait for React to update (hide the selection rectangle)
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Store original view settings
+      const originalScale = stage.scaleX();
+      const originalPosition = { x: stage.x(), y: stage.y() };
+      
+      // Temporarily reset to default view
+      stage.scale({ x: 1, y: 1 });
+      stage.position({ x: 0, y: 0 });
+      
+      // Generate PNG for selected area at full quality
+      const dataURL = stage.toDataURL({
+        pixelRatio: 1, // Full quality
+        mimeType: 'image/png',
+        quality: 1,
+        x: normalizedX,
+        y: normalizedY,
+        width: normalizedWidth,
+        height: normalizedHeight
+      });
+      
+      // Restore original view
+      stage.scale({ x: originalScale, y: originalScale });
+      stage.position(originalPosition);
+      
+      // Trigger download
+      const link = document.createElement('a');
+      link.download = `collabcanvas-selection-${Date.now()}.png`;
+      link.href = dataURL;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('✅ Selection exported successfully');
+    } catch (error) {
+      console.error('❌ Export failed:', error);
+      alert('Failed to export selection. Please try again.');
+    } finally {
+      // Reset exporting state
+      setIsExportingSelection(false);
     }
   };
   
@@ -368,7 +503,7 @@ export default function Canvas() {
   
   // Get selected shape for formatting toolbar
   const selectedShape = shapes.find(s => s.id === selectedId);
-
+  
   return (
     <div className="relative w-full h-full overflow-hidden bg-gray-100">
       {/* Text Formatting Toolbar */}
@@ -394,6 +529,20 @@ export default function Canvas() {
         />
       )}
       
+      {/* Export Loading Overlay */}
+      {isExportingSelection && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 flex flex-col items-center space-y-4">
+            <svg className="animate-spin h-12 w-12 text-blue-600" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+            </svg>
+            <p className="text-lg font-semibold text-gray-800">Exporting Selection...</p>
+            <p className="text-sm text-gray-600">Please wait while we generate your image</p>
+          </div>
+        </div>
+      )}
+      
       {/* Konva Stage */}
       <Stage
         ref={stageRef}
@@ -403,22 +552,36 @@ export default function Canvas() {
         scaleY={scale}
         x={position.x}
         y={position.y}
-        draggable
+        draggable={!exportSelectionMode}
         onWheel={handleWheel}
         onDragEnd={handleDragEnd}
         onClick={handleStageClick}
         onTap={handleStageClick}
         onMouseMove={handleMouseMove}
-        style={{ cursor: 'grab' }}
+        style={{ 
+          cursor: isExportingSelection 
+            ? 'wait' 
+            : exportSelectionMode 
+              ? 'crosshair' 
+              : 'grab' 
+        }}
         onMouseDown={(e) => {
+          if (exportSelectionMode) {
+            handleSelectionMouseDown(e);
+          } else {
           // Change cursor to grabbing when dragging
           if (e.target === e.target.getStage()) {
             e.target.getStage().container().style.cursor = 'grabbing';
+            }
           }
         }}
         onMouseUp={(e) => {
+          if (exportSelectionMode) {
+            handleSelectionMouseUp();
+          } else {
           // Reset cursor after drag
           e.target.getStage().container().style.cursor = 'grab';
+          }
         }}
       >
         <Layer>
@@ -523,13 +686,13 @@ export default function Canvas() {
               canvasHeight={CANVAS_HEIGHT}
             />
           ))}
-          
+      
           {/* Render other users' cursors inside the stage */}
-          {Object.entries(cursors).map(([userId, cursor]) => {
-            if (!cursor || cursor.cursorX === undefined || cursor.cursorY === undefined) {
-              return null;
-            }
-            
+      {Object.entries(cursors).map(([userId, cursor]) => {
+        if (!cursor || cursor.cursorX === undefined || cursor.cursorY === undefined) {
+          return null;
+        }
+        
             // Debug: Log received cursor positions occasionally
             if (Math.random() < 0.005) {
               console.log('👁️ Rendering cursor for', cursor.displayName, '(canvas coords):', {
@@ -539,18 +702,29 @@ export default function Canvas() {
                 myStagePos: { x: Math.round(position.x), y: Math.round(position.y) }
               });
             }
-            
-            return (
+        
+        return (
               <CursorMarker
-                key={userId}
+            key={userId}
                 x={cursor.cursorX}
                 y={cursor.cursorY}
-                color={cursor.cursorColor}
-                displayName={cursor.displayName}
+            color={cursor.cursorColor}
+            displayName={cursor.displayName}
                 stageScale={scale}
-              />
-            );
-          })}
+          />
+        );
+      })}
+          
+          {/* Render selection rectangle when in export selection mode */}
+          {exportSelectionMode && selectionBox && (
+            <SelectionRectangle
+              x={selectionBox.x}
+              y={selectionBox.y}
+              width={selectionBox.width}
+              height={selectionBox.height}
+              stageScale={scale}
+            />
+          )}
         </Layer>
       </Stage>
     </div>
