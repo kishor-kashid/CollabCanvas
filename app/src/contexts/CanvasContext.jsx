@@ -17,6 +17,8 @@ import {
   DEFAULT_TEXT_SIZE,
   DEFAULT_TEXT_COLOR,
   DEFAULT_TEXT_FONT_FAMILY,
+  DEFAULT_TRIANGLE_WIDTH,
+  DEFAULT_TRIANGLE_HEIGHT,
 } from '../utils/constants';
 import { useCanvas } from '../hooks/useCanvas';
 import { useAuth } from '../hooks/useAuth';
@@ -40,6 +42,15 @@ export function CanvasProvider({ children }) {
   // Export selection state
   const [exportSelectionMode, setExportSelectionMode] = useState(false);
   const [selectionBox, setSelectionBox] = useState(null);
+  
+  // Grid visibility state
+  const [gridVisible, setGridVisible] = useState(true);
+  
+  // Current color for new shapes (with localStorage persistence)
+  const [currentColor, setCurrentColor] = useState(() => {
+    // Load from localStorage or use default black
+    return localStorage.getItem('collabcanvas-current-color') || '#000000';
+  });
   
   // Clean up stale sessions on mount
   useEffect(() => {
@@ -71,6 +82,23 @@ export function CanvasProvider({ children }) {
   const zoomOut = () => {
     const newScale = Math.max(scale / 1.2, MIN_ZOOM);
     setScale(newScale);
+  };
+  
+  // Fit entire canvas to screen
+  const fitToScreen = () => {
+    const padding = 50;
+    const availableWidth = window.innerWidth - padding * 2;
+    const availableHeight = window.innerHeight - padding * 2;
+    
+    const scaleX = availableWidth / CANVAS_WIDTH;
+    const scaleY = availableHeight / CANVAS_HEIGHT;
+    const newScale = Math.min(scaleX, scaleY, MAX_ZOOM);
+    
+    setScale(newScale);
+    setPosition({ 
+      x: padding, 
+      y: padding 
+    });
   };
   
   // Handle wheel zoom (will be called from Canvas component)
@@ -166,7 +194,7 @@ export function CanvasProvider({ children }) {
             ...baseShape,
             width: DEFAULT_SHAPE_WIDTH,
             height: DEFAULT_SHAPE_HEIGHT,
-            fill: DEFAULT_SHAPE_FILL,
+            fill: currentColor,
           };
           break;
         
@@ -174,7 +202,16 @@ export function CanvasProvider({ children }) {
           newShape = {
             ...baseShape,
             radius: DEFAULT_CIRCLE_RADIUS,
-            fill: DEFAULT_SHAPE_FILL,
+            fill: currentColor,
+          };
+          break;
+        
+        case SHAPE_TYPES.TRIANGLE:
+          newShape = {
+            ...baseShape,
+            width: DEFAULT_TRIANGLE_WIDTH,
+            height: DEFAULT_TRIANGLE_HEIGHT,
+            fill: currentColor,
           };
           break;
         
@@ -373,6 +410,7 @@ export function CanvasProvider({ children }) {
     resetView,
     zoomIn,
     zoomOut,
+    fitToScreen,
     handleWheel,
     handleDragEnd,
     constrainPosition,
@@ -400,6 +438,12 @@ export function CanvasProvider({ children }) {
     setExportSelectionMode,
     selectionBox,
     setSelectionBox,
+    // Grid visibility
+    gridVisible,
+    setGridVisible,
+    // Current color for new shapes
+    currentColor,
+    setCurrentColor,
   };
   
   return (

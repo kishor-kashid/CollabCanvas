@@ -1,5 +1,5 @@
-// EditableShape.jsx - Wrapper for rectangles/circles with color editing on double-click
-import { Rect, Circle } from 'react-konva';
+// EditableShape.jsx - Wrapper for rectangles/circles/triangles with color editing on double-click
+import { Rect, Circle, Line } from 'react-konva';
 import { SHAPE_TYPES } from '../../utils/constants';
 
 export default function EditableShape({ 
@@ -55,6 +55,16 @@ export default function EditableShape({
     }
   };
 
+  // Triangle points calculation (points upward by default)
+  const getTrianglePoints = () => {
+    if (type !== SHAPE_TYPES.TRIANGLE) return [];
+    return [
+      width / 2, 0,         // Top point (center top)
+      width, height,        // Bottom right
+      0, height             // Bottom left
+    ];
+  };
+
   const shapeProps = {
     ref: shapeRef,
     id,
@@ -73,6 +83,8 @@ export default function EditableShape({
     return <Rect {...shapeProps} width={width} height={height} />;
   } else if (type === SHAPE_TYPES.CIRCLE) {
     return <Circle {...shapeProps} radius={radius} />;
+  } else if (type === SHAPE_TYPES.TRIANGLE) {
+    return <Line {...shapeProps} points={getTrianglePoints()} closed={true} />;
   }
   
   return null;

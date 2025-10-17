@@ -16,6 +16,7 @@ export const MAX_ZOOM = 3;
 export const SHAPE_TYPES = {
   RECTANGLE: 'rectangle',
   CIRCLE: 'circle',
+  TRIANGLE: 'triangle',
   TEXT: 'text',
 };
 
@@ -24,6 +25,8 @@ export const DEFAULT_SHAPE_WIDTH = 300;
 export const DEFAULT_SHAPE_HEIGHT = 300;
 export const DEFAULT_CIRCLE_RADIUS = 150;
 export const DEFAULT_SHAPE_FILL = '#cccccc'; // Gray fill for rectangles/circles
+export const DEFAULT_TRIANGLE_WIDTH = 300;
+export const DEFAULT_TRIANGLE_HEIGHT = 300;
 
 // Text box specific defaults (4x larger than shapes)
 export const DEFAULT_TEXT_WIDTH = 1200;

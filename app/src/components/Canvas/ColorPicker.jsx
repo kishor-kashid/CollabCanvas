@@ -4,23 +4,44 @@ import { useState, useRef, useEffect } from 'react';
 const PRESET_COLORS = [
   '#FF5733', '#33C1FF', '#8B5CF6', '#10B981', 
   '#F59E0B', '#EC4899', '#6366F1', '#14B8A6',
-  '#EF4444', '#3B82F6', '#8B5CF6', '#10B981',
-  '#F97316', '#06B6D4', '#A855F7', '#84CC16',
-  '#000000', '#6B7280', '#D1D5DB', '#FFFFFF'
+  '#EF4444', '#3B82F6', '#F97316', '#06B6D4',
+  '#A855F7', '#84CC16', '#000000', '#6B7280',
+  '#D1D5DB', '#FFFFFF'
 ];
 
 export default function ColorPicker({ 
   selectedShape, 
   currentColor,
   onColorChange,
-  onClose
+  onClose,
+  position = null, // { top, left } or null for default positioning
+  anchorElement = null // Reference element to position below
 }) {
   const [customColor, setCustomColor] = useState(currentColor || '#cccccc');
   const pickerRef = useRef(null);
+  const [calculatedPosition, setCalculatedPosition] = useState(position || { top: 80, right: 16 });
+
+  // Calculate position from anchor element
+  useEffect(() => {
+    if (anchorElement && anchorElement.current) {
+      const rect = anchorElement.current.getBoundingClientRect();
+      setCalculatedPosition({
+        top: rect.bottom + 8, // 8px below anchor
+        left: rect.left + rect.width / 2, // Center of anchor
+        transform: 'translateX(-50%)', // Center horizontally
+      });
+    } else if (position) {
+      setCalculatedPosition(position);
+    }
+  }, [anchorElement, position]);
 
   // Handle clicks outside to close
   useEffect(() => {
     const handleClickOutside = (e) => {
+      // Don't close if clicking on the anchor element
+      if (anchorElement?.current && anchorElement.current.contains(e.target)) {
+        return;
+      }
       if (pickerRef.current && !pickerRef.current.contains(e.target)) {
         onClose();
       }
@@ -28,7 +49,7 @@ export default function ColorPicker({
     
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
+  }, [onClose, anchorElement]);
 
   // Handle Escape key
   useEffect(() => {
@@ -55,10 +76,28 @@ export default function ColorPicker({
 
   if (!selectedShape) return null;
 
+  // Build style object for positioning
+  const positionStyle = calculatedPosition.transform 
+    ? {
+        top: `${calculatedPosition.top}px`,
+        left: `${calculatedPosition.left}px`,
+        transform: calculatedPosition.transform,
+      }
+    : calculatedPosition.right !== undefined
+    ? {
+        top: `${calculatedPosition.top}px`,
+        right: `${calculatedPosition.right}px`,
+      }
+    : {
+        top: `${calculatedPosition.top}px`,
+        left: `${calculatedPosition.left}px`,
+      };
+
   return (
     <div 
       ref={pickerRef}
-      className="fixed right-4 top-20 z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-80"
+      className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-80"
+      style={positionStyle}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">

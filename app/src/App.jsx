@@ -6,7 +6,6 @@ import Login from './components/Auth/Login';
 import Signup from './components/Auth/Signup';
 import Navbar from './components/Layout/Navbar';
 import Canvas from './components/Canvas/Canvas';
-import CanvasControls from './components/Canvas/CanvasControls';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -26,7 +25,6 @@ function CanvasPage() {
       <div className="h-screen flex flex-col overflow-hidden">
         <Navbar />
         <div className="flex-1 relative">
-          <CanvasControls />
           <Canvas />
         </div>
       </div>

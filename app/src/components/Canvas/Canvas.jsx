@@ -10,6 +10,8 @@ import CursorMarker from '../Collaboration/CursorMarker';
 import TextFormattingToolbar from './TextFormattingToolbar';
 import ColorPicker from './ColorPicker';
 import SelectionRectangle from './SelectionRectangle';
+import TopToolbar from './TopToolbar';
+import LeftSidebar from './LeftSidebar';
 import AIChatButton from '../AI/AIChatButton';
 import AIAssistant from '../AI/AIAssistant';
 import { streamChatCompletion, handleFunctionCalls } from '../../services/aiService';
@@ -51,6 +53,7 @@ export default function Canvas() {
     sendShapeToBack,
     bringShapeForward,
     sendShapeBackward,
+    gridVisible,
   } = useContext(CanvasContext);
   
   // Cursor tracking
@@ -473,6 +476,12 @@ export default function Canvas() {
   
   return (
     <div className="relative w-full h-full overflow-hidden bg-gray-100">
+      {/* Top Toolbar */}
+      <TopToolbar />
+      
+      {/* Left Sidebar */}
+      <LeftSidebar />
+      
       {/* Text Formatting Toolbar */}
       {selectedShape && selectedShape.type === 'text' && stageRef.current && (
         <TextFormattingToolbar
@@ -487,12 +496,17 @@ export default function Canvas() {
       
       {/* Color Picker for Rectangles and Circles */}
       {isColorPickerOpen && selectedShape && 
-       (selectedShape.type === 'rectangle' || selectedShape.type === 'circle') && (
+       (selectedShape.type === 'rectangle' || selectedShape.type === 'circle' || selectedShape.type === 'triangle') && (
         <ColorPicker
           selectedShape={selectedShape}
           currentColor={selectedShape.fill}
           onColorChange={handleColorChange}
           onClose={() => handleColorEditUnlock(selectedId)()}
+          position={{
+            top: 155, // Position below the color button (toolbar height + button height + gap)
+            left: (window.innerWidth / 2) - 90, // Offset left from center to align with color button position
+            transform: 'translateX(-50%)', // Center the picker below button
+          }}
         />
       )}
       
@@ -563,7 +577,7 @@ export default function Canvas() {
           />
           
           {/* Grid */}
-          {gridLines.map(line => (
+          {gridVisible && gridLines.map(line => (
             <Line
               key={line.key}
               points={line.points}

@@ -69,7 +69,7 @@ export default function Shape({
       newX = Math.max(effectiveRadius, Math.min(x, canvasWidth - effectiveRadius));
       newY = Math.max(effectiveRadius, Math.min(y, canvasHeight - effectiveRadius));
     } else {
-      // For rectangles and text, we need to account for rotation
+      // For rectangles, triangles, and text, we need to account for rotation
       // Get the bounding box which includes rotation, scale, and position
       const box = node.getClientRect({ relativeTo: node.getParent() });
       
@@ -140,6 +140,7 @@ export default function Shape({
     switch (type) {
       case SHAPE_TYPES.RECTANGLE:
       case SHAPE_TYPES.CIRCLE:
+      case SHAPE_TYPES.TRIANGLE:
         return (
           <EditableShape
             id={id}
