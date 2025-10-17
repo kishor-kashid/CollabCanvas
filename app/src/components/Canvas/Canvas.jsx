@@ -40,6 +40,10 @@ export default function Canvas() {
     setExportSelectionMode,
     selectionBox,
     setSelectionBox,
+    bringShapeToFront,
+    sendShapeToBack,
+    bringShapeForward,
+    sendShapeBackward,
   } = useContext(CanvasContext);
   
   // Cursor tracking
@@ -198,11 +202,40 @@ export default function Canvas() {
           deleteShape(selectedId);
         }
       }
+      
+      // Z-index keyboard shortcuts
+      // Cmd/Ctrl + ] : Bring to Front
+      if ((e.ctrlKey || e.metaKey) && e.key === ']' && selectedId) {
+        e.preventDefault();
+        bringShapeToFront(selectedId);
+        return;
+      }
+      
+      // Cmd/Ctrl + [ : Send to Back
+      if ((e.ctrlKey || e.metaKey) && e.key === '[' && selectedId) {
+        e.preventDefault();
+        sendShapeToBack(selectedId);
+        return;
+      }
+      
+      // Cmd/Ctrl + Shift + ] : Bring Forward
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === '}' && selectedId) {
+        e.preventDefault();
+        bringShapeForward(selectedId);
+        return;
+      }
+      
+      // Cmd/Ctrl + Shift + [ : Send Backward
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === '{' && selectedId) {
+        e.preventDefault();
+        sendShapeBackward(selectedId);
+        return;
+      }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll, isAIChatOpen]);
+  }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll, isAIChatOpen, bringShapeToFront, sendShapeToBack, bringShapeForward, sendShapeBackward]);
   
   // Handle clicking on stage background to deselect
   const handleStageClick = (e) => {

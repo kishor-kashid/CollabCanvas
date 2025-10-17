@@ -279,3 +279,168 @@ export async function releaseStaleLocks() {
   }
 }
 
+// ============================================================================
+// Z-INDEX MANAGEMENT (Layer Ordering)
+// ============================================================================
+
+/**
+ * Reorder shapes array (for z-index management)
+ * Lower array index = back/bottom layer
+ * Higher array index = front/top layer
+ * @param {Array} newShapesOrder - New array of shapes in desired order
+ * @returns {Promise<void>}
+ */
+export async function reorderShapes(newShapesOrder) {
+  try {
+    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+    
+    await updateDoc(canvasRef, {
+      shapes: newShapesOrder,
+      lastUpdated: serverTimestamp(),
+    });
+    
+    console.log('✅ Shapes reordered successfully');
+  } catch (error) {
+    console.error('❌ Error reordering shapes:', error);
+    throw error;
+  }
+}
+
+/**
+ * Bring shape to front (highest z-index)
+ * Moves the shape to the end of the array so it renders last (on top)
+ * @param {string} shapeId - Shape ID to bring to front
+ * @returns {Promise<void>}
+ */
+export async function bringToFront(shapeId) {
+  try {
+    const shapes = await getCurrentShapes();
+    const shapeIndex = shapes.findIndex(s => s.id === shapeId);
+    
+    if (shapeIndex === -1) {
+      throw new Error('Shape not found');
+    }
+    
+    // Already at front
+    if (shapeIndex === shapes.length - 1) {
+      console.log('Shape already at front');
+      return;
+    }
+    
+    // Remove shape from current position and add to end (front)
+    const shape = shapes[shapeIndex];
+    const newShapes = shapes.filter((_, i) => i !== shapeIndex);
+    newShapes.push(shape);
+    
+    await reorderShapes(newShapes);
+    console.log('✅ Brought shape to front:', shapeId);
+  } catch (error) {
+    console.error('❌ Error bringing to front:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send shape to back (lowest z-index)
+ * Moves the shape to the start of the array so it renders first (behind all others)
+ * @param {string} shapeId - Shape ID to send to back
+ * @returns {Promise<void>}
+ */
+export async function sendToBack(shapeId) {
+  try {
+    const shapes = await getCurrentShapes();
+    const shapeIndex = shapes.findIndex(s => s.id === shapeId);
+    
+    if (shapeIndex === -1) {
+      throw new Error('Shape not found');
+    }
+    
+    // Already at back
+    if (shapeIndex === 0) {
+      console.log('Shape already at back');
+      return;
+    }
+    
+    // Remove shape from current position and add to start (back)
+    const shape = shapes[shapeIndex];
+    const newShapes = shapes.filter((_, i) => i !== shapeIndex);
+    newShapes.unshift(shape);
+    
+    await reorderShapes(newShapes);
+    console.log('✅ Sent shape to back:', shapeId);
+  } catch (error) {
+    console.error('❌ Error sending to back:', error);
+    throw error;
+  }
+}
+
+/**
+ * Bring shape forward one level
+ * Swaps with the shape above it in the z-order
+ * @param {string} shapeId - Shape ID to bring forward
+ * @returns {Promise<void>}
+ */
+export async function bringForward(shapeId) {
+  try {
+    const shapes = await getCurrentShapes();
+    const shapeIndex = shapes.findIndex(s => s.id === shapeId);
+    
+    if (shapeIndex === -1) {
+      console.log('Shape not found');
+      return;
+    }
+    
+    // Already at front
+    if (shapeIndex === shapes.length - 1) {
+      console.log('Shape already at front');
+      return;
+    }
+    
+    // Swap with next shape (one level up)
+    const newShapes = [...shapes];
+    [newShapes[shapeIndex], newShapes[shapeIndex + 1]] = 
+      [newShapes[shapeIndex + 1], newShapes[shapeIndex]];
+    
+    await reorderShapes(newShapes);
+    console.log('✅ Brought shape forward:', shapeId);
+  } catch (error) {
+    console.error('❌ Error bringing forward:', error);
+    throw error;
+  }
+}
+
+/**
+ * Send shape backward one level
+ * Swaps with the shape below it in the z-order
+ * @param {string} shapeId - Shape ID to send backward
+ * @returns {Promise<void>}
+ */
+export async function sendBackward(shapeId) {
+  try {
+    const shapes = await getCurrentShapes();
+    const shapeIndex = shapes.findIndex(s => s.id === shapeId);
+    
+    if (shapeIndex === -1) {
+      console.log('Shape not found');
+      return;
+    }
+    
+    // Already at back
+    if (shapeIndex === 0) {
+      console.log('Shape already at back');
+      return;
+    }
+    
+    // Swap with previous shape (one level down)
+    const newShapes = [...shapes];
+    [newShapes[shapeIndex], newShapes[shapeIndex - 1]] = 
+      [newShapes[shapeIndex - 1], newShapes[shapeIndex]];
+    
+    await reorderShapes(newShapes);
+    console.log('✅ Sent shape backward:', shapeId);
+  } catch (error) {
+    console.error('❌ Error sending backward:', error);
+    throw error;
+  }
+}
+

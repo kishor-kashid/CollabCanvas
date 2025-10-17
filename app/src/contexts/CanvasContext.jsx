@@ -275,6 +275,47 @@ export function CanvasProvider({ children }) {
     }
   };
   
+  // Z-index management (layer ordering)
+  const bringShapeToFront = async (id) => {
+    if (!currentUser) return;
+    
+    try {
+      await canvasService.bringToFront(id);
+    } catch (error) {
+      console.error('Error bringing shape to front:', error);
+    }
+  };
+  
+  const sendShapeToBack = async (id) => {
+    if (!currentUser) return;
+    
+    try {
+      await canvasService.sendToBack(id);
+    } catch (error) {
+      console.error('Error sending shape to back:', error);
+    }
+  };
+  
+  const bringShapeForward = async (id) => {
+    if (!currentUser) return;
+    
+    try {
+      await canvasService.bringForward(id);
+    } catch (error) {
+      console.error('Error bringing shape forward:', error);
+    }
+  };
+  
+  const sendShapeBackward = async (id) => {
+    if (!currentUser) return;
+    
+    try {
+      await canvasService.sendBackward(id);
+    } catch (error) {
+      console.error('Error sending shape backward:', error);
+    }
+  };
+  
   const value = {
     shapes,
     selectedId,
@@ -304,6 +345,11 @@ export function CanvasProvider({ children }) {
     unlockShape,
     generateShapeId,
     currentUserId: currentUser?.uid,
+    // Z-index management
+    bringShapeToFront,
+    sendShapeToBack,
+    bringShapeForward,
+    sendShapeBackward,
     // Export selection state
     exportSelectionMode,
     setExportSelectionMode,

@@ -1,6 +1,6 @@
 // CanvasControls Component - Floating control panel for canvas operations
 
-import { useContext, useState } from 'react';
+import { useContext, useState, useEffect, useRef } from 'react';
 import { CanvasContext } from '../../contexts/CanvasContext';
 import { SHAPE_TYPES, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
 
@@ -13,10 +13,62 @@ export default function CanvasControls() {
     resetView, 
     addShape, 
     stageRef,
-    setExportSelectionMode 
+    setExportSelectionMode,
+    selectedId,
+    bringShapeToFront,
+    sendShapeToBack,
+    bringShapeForward,
+    sendShapeBackward,
   } = useContext(CanvasContext);
   const [isExporting, setIsExporting] = useState(false);
-  const [showExportOptions, setShowExportOptions] = useState(false);
+  const [showExportPanel, setShowExportPanel] = useState(false);
+  const [showLayerPanel, setShowLayerPanel] = useState(false);
+  const layerPanelRef = useRef(null);
+  const layerButtonRef = useRef(null);
+  const exportButtonRef = useRef(null);
+  const [layerPanelTop, setLayerPanelTop] = useState(0);
+  const [exportPanelTop, setExportPanelTop] = useState(0);
+  
+  // Calculate layer panel position when it opens
+  useEffect(() => {
+    if (showLayerPanel && layerButtonRef.current) {
+      const buttonRect = layerButtonRef.current.getBoundingClientRect();
+      const controlsRect = layerPanelRef.current.getBoundingClientRect();
+      
+      // Calculate center of the button section relative to the controls panel
+      const buttonCenter = buttonRect.top + buttonRect.height / 2;
+      const topOffset = buttonCenter - controlsRect.top;
+      setLayerPanelTop(topOffset);
+    }
+  }, [showLayerPanel]);
+  
+  // Calculate export panel position when it opens
+  useEffect(() => {
+    if (showExportPanel && exportButtonRef.current) {
+      const buttonRect = exportButtonRef.current.getBoundingClientRect();
+      const controlsRect = layerPanelRef.current.getBoundingClientRect();
+      
+      // Calculate center of the button section relative to the controls panel
+      const buttonCenter = buttonRect.top + buttonRect.height / 2;
+      const topOffset = buttonCenter - controlsRect.top;
+      setExportPanelTop(topOffset);
+    }
+  }, [showExportPanel]);
+  
+  // Close panels when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (layerPanelRef.current && !layerPanelRef.current.contains(event.target)) {
+        setShowLayerPanel(false);
+        setShowExportPanel(false);
+      }
+    };
+    
+    if (showLayerPanel || showExportPanel) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showLayerPanel, showExportPanel]);
   
   // Calculate viewport center in canvas coordinates, clamped to canvas bounds
   const getViewportCenterInCanvas = () => {
@@ -105,19 +157,20 @@ export default function CanvasControls() {
   
   // Start selection mode for exporting a specific area
   const handleStartSelectionMode = () => {
-    setShowExportOptions(false);
+    setShowExportPanel(false);
     setExportSelectionMode(true);
   };
   
   return (
-    <div className="fixed left-4 top-20 z-20 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2">
-        <h3 className="text-white font-semibold text-sm">Canvas Controls</h3>
-      </div>
-      
-      {/* Controls */}
-      <div className="p-3 space-y-2">
+    <div ref={layerPanelRef} className="fixed left-4 top-20 z-20">
+      <div className="bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2">
+          <h3 className="text-white font-semibold text-sm">Canvas Controls</h3>
+        </div>
+        
+        {/* Controls */}
+        <div className="p-3 space-y-2">
         {/* Zoom Info */}
         <div className="text-center py-2 bg-gray-50 rounded-lg">
           <div className="text-xs text-gray-500 mb-1">Current Zoom</div>
@@ -202,70 +255,53 @@ export default function CanvasControls() {
           <p className="text-xs text-gray-500 text-center mt-2">Creates at viewport center</p>
         </div>
         
+        {/* Layer Order Button */}
+        <div ref={layerButtonRef} className="pt-2 border-t border-gray-200">
+          <h4 className="text-xs font-semibold text-gray-700 mb-2">Layer Order:</h4>
+          <button
+            onClick={() => setShowLayerPanel(!showLayerPanel)}
+            disabled={!selectedId}
+            className={`w-full flex items-center justify-center space-x-2 px-4 py-2 text-white rounded-lg transition duration-200 font-medium text-sm ${
+              selectedId ? 'bg-purple-500 hover:bg-purple-600' : 'bg-gray-300 cursor-not-allowed'
+            }`}
+            title="Manage Layers (Z-Index)"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+            </svg>
+            <span>Layers</span>
+          </button>
+          <p className="text-xs text-gray-500 text-center mt-2">Select a shape first</p>
+        </div>
+        
         {/* Export Section */}
-        <div className="pt-2 border-t border-gray-200">
+        <div ref={exportButtonRef} className="pt-2 border-t border-gray-200">
           <h4 className="text-xs font-semibold text-gray-700 mb-2">Export:</h4>
-          
-          {!showExportOptions ? (
-            <button
-              onClick={() => setShowExportOptions(true)}
-              disabled={isExporting}
-              className={`w-full flex items-center justify-center space-x-2 px-4 py-2 ${
-                isExporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600'
-              } text-white rounded-lg transition duration-200 font-medium text-sm`}
-              title="Choose export options"
-            >
-              {isExporting ? (
-                <>
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                  </svg>
-                  <span>Exporting...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  <span>Download PNG</span>
-                </>
-              )}
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <button
-                onClick={handleStartSelectionMode}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200 font-medium text-sm"
-                title="Draw a selection box to export a specific area at full quality"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          <button
+            onClick={() => setShowExportPanel(!showExportPanel)}
+            disabled={isExporting}
+            className={`w-full flex items-center justify-center space-x-2 px-4 py-2 ${
+              isExporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600'
+            } text-white rounded-lg transition duration-200 font-medium text-sm`}
+            title="Export Canvas"
+          >
+            {isExporting ? (
+              <>
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
                 </svg>
-                <span>Export Selection</span>
-              </button>
-              <p className="text-xs text-gray-500 text-center -mt-1">Draw area • Full quality</p>
-              
-              <button
-                onClick={handleDownloadFullCanvas}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition duration-200 font-medium text-sm"
-                title="Export entire canvas at 50% pixel ratio"
-              >
+                <span>Exporting...</span>
+              </>
+            ) : (
+              <>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                <span>Export Full (50%)</span>
-              </button>
-              <p className="text-xs text-gray-500 text-center -mt-1">Full canvas • 0.5x quality</p>
-              
-              <button
-                onClick={() => setShowExportOptions(false)}
-                className="w-full px-4 py-1.5 text-xs text-gray-600 hover:text-gray-800 transition duration-200"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
+                <span>Download PNG</span>
+              </>
+            )}
+          </button>
         </div>
         
         {/* Keyboard Shortcuts */}
@@ -284,9 +320,146 @@ export default function CanvasControls() {
               <span>Delete:</span>
               <span className="font-mono bg-gray-100 px-1 rounded">Del</span>
             </div>
+            <div className="flex justify-between">
+              <span>To Front:</span>
+              <span className="font-mono bg-gray-100 px-1 rounded">⌘]</span>
+            </div>
+            <div className="flex justify-between">
+              <span>To Back:</span>
+              <span className="font-mono bg-gray-100 px-1 rounded">⌘[</span>
+            </div>
           </div>
         </div>
+        </div>
       </div>
+      
+      {/* Layer Panel - Floating dropdown */}
+      {showLayerPanel && selectedId && (
+        <div 
+          className="absolute bg-white rounded-lg shadow-2xl border-2 border-purple-300 z-30 animate-slideIn"
+          style={{ 
+            left: 'calc(100% + 12px)', 
+            width: '220px',
+            top: `${layerPanelTop}px`,
+            transform: 'translateY(-50%)' // Center vertically
+          }}
+        >
+          {/* Header */}
+          <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-2 rounded-t-lg flex items-center justify-between">
+            <h3 className="text-white font-semibold text-sm">Layer Controls</h3>
+            <button
+              onClick={() => setShowLayerPanel(false)}
+              className="text-white hover:text-gray-200 transition-colors"
+              title="Close"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          {/* Layer Buttons */}
+          <div className="p-3 space-y-2">
+            <button
+              onClick={() => bringShapeToFront(selectedId)}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200 font-medium text-sm"
+              title="Bring to Front (Cmd+])"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+              <span>Bring to Front</span>
+            </button>
+            
+            <button
+              onClick={() => bringShapeForward(selectedId)}
+              className="w-full flex items-center justify-center space-x-2 px-3 py-1.5 bg-blue-400 hover:bg-blue-500 text-white rounded-lg transition duration-200 font-medium text-xs"
+              title="Bring Forward"
+            >
+              <span>↑ Forward</span>
+            </button>
+            
+            <button
+              onClick={() => sendShapeBackward(selectedId)}
+              className="w-full flex items-center justify-center space-x-2 px-3 py-1.5 bg-indigo-400 hover:bg-indigo-500 text-white rounded-lg transition duration-200 font-medium text-xs"
+              title="Send Backward"
+            >
+              <span>↓ Backward</span>
+            </button>
+            
+            <button
+              onClick={() => sendShapeToBack(selectedId)}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition duration-200 font-medium text-sm"
+              title="Send to Back (Cmd+[)"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              <span>Send to Back</span>
+            </button>
+            
+            <div className="pt-2 border-t border-gray-200">
+              <p className="text-xs text-gray-600 text-center">
+                Use <span className="font-mono bg-gray-100 px-1 rounded">⌘]</span> / <span className="font-mono bg-gray-100 px-1 rounded">⌘[</span> for quick access
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Export Panel - Floating dropdown */}
+      {showExportPanel && (
+        <div 
+          className="absolute bg-white rounded-lg shadow-2xl border-2 border-emerald-300 z-30 animate-slideIn"
+          style={{ 
+            left: 'calc(100% + 12px)', 
+            width: '240px',
+            top: `${exportPanelTop}px`,
+            transform: 'translateY(-50%)' // Center vertically
+          }}
+        >
+          {/* Header */}
+          <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-4 py-2 rounded-t-lg flex items-center justify-between">
+            <h3 className="text-white font-semibold text-sm">Export Options</h3>
+            <button
+              onClick={() => setShowExportPanel(false)}
+              className="text-white hover:text-gray-200 transition-colors"
+              title="Close"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          {/* Export Buttons */}
+          <div className="p-3 space-y-2">
+            <button
+              onClick={handleStartSelectionMode}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-200 font-medium text-sm"
+              title="Draw a selection box to export a specific area at full quality"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              <span>Export Selection</span>
+            </button>
+            <p className="text-xs text-gray-500 text-center -mt-1">Draw area • Full quality</p>
+            
+            <button
+              onClick={handleDownloadFullCanvas}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition duration-200 font-medium text-sm"
+              title="Export entire canvas at 50% pixel ratio"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>Export Full (50%)</span>
+            </button>
+            <p className="text-xs text-gray-500 text-center -mt-1">Full canvas • 0.5x quality</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
