@@ -19,11 +19,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     // Listen to auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log('🔐 Auth state changed:', user ? user.uid : 'null');
-      
       // If user logged out, clean up their session
       if (!user && currentUser) {
-        console.log('🧹 User logged out, cleaning up session for:', currentUser.uid);
         removeUserSession(currentUser.uid).catch(err => {
           console.error('Failed to cleanup session:', err);
         });
@@ -76,7 +73,6 @@ export function AuthProvider({ children }) {
       
       // Clean up user session before signing out
       if (currentUser) {
-        console.log('🧹 Cleaning up session before logout for:', currentUser.uid);
         await removeUserSession(currentUser.uid);
       }
       

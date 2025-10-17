@@ -107,7 +107,7 @@ export default function CanvasControls() {
     if (!stageRef?.current || isExporting) return;
     
     setIsExporting(true);
-    setShowExportOptions(false);
+    setShowExportPanel(false);
     
     // Use setTimeout to let UI update before heavy operation
     setTimeout(() => {

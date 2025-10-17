@@ -33,7 +33,7 @@ export function parseColor(colorString) {
  * @param {number} viewportHeight - Current viewport height
  * @returns {Object} {x, y} center coordinates
  */
-export function calculateCenter(viewportWidth = 1920, viewportHeight = 1080) {
+export function calculateCenter() {
   // Use canvas dimensions, not viewport
   return {
     x: (CANVAS_W || 5000) / 2,
@@ -430,9 +430,10 @@ export function generateShapeDescription(shape) {
   
   // Add color
   if (shape.fill) {
-    const colorName = Object.entries(COLOR_MAP).find(([name, hex]) => 
+    const colorEntry = Object.entries(COLOR_MAP).find(([, hex]) => 
       hex.toLowerCase() === shape.fill.toLowerCase()
-    )?.[0] || shape.fill;
+    );
+    const colorName = colorEntry ? colorEntry[0] : shape.fill;
     desc += `${colorName} `;
   }
   

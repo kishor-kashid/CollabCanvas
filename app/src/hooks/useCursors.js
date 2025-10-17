@@ -30,13 +30,10 @@ export function useCursors() {
   // Initialize user session and subscribe to cursor updates
   useEffect(() => {
     if (!currentUser) {
-      console.log('❌ useCursors: No currentUser');
       setCursors({});
       initializedRef.current = false;
       return;
     }
-    
-    console.log('✅ useCursors: Setting up cursor tracking for', currentUser.uid);
     
     // Get display name
     const displayName = currentUser.displayName || 
@@ -46,24 +43,19 @@ export function useCursors() {
     // Initialize user session (sets up onDisconnect handler)
     initializeUserSession(currentUser.uid, displayName, userColor).then(() => {
       initializedRef.current = true;
-      console.log('✅ User session initialized');
     });
     
     // Subscribe to cursor updates
     const unsubscribe = subscribeToCursors((allCursors) => {
-      console.log('📍 Received cursors:', allCursors);
-      
       // Filter out current user's cursor
       const otherCursors = { ...allCursors };
       delete otherCursors[currentUser.uid];
       
-      console.log('👥 Other users cursors:', Object.keys(otherCursors).length, 'users');
       setCursors(otherCursors);
     });
     
     // Cleanup function
     return () => {
-      console.log('🧹 Cleaning up cursor for', currentUser.uid);
       unsubscribe();
       
       // Remove user session on unmount

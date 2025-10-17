@@ -9,10 +9,7 @@ import {
   getDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-
-const CANVAS_ID = 'global-canvas-v1';
-const CANVAS_COLLECTION = 'canvas';
-const LOCK_TIMEOUT_MS = 5000; // 5 seconds
+import { CANVAS_ID, CANVAS_COLLECTION, LOCK_TIMEOUT_MS } from '../utils/constants';
 
 /**
  * Initialize canvas document if it doesn't exist
@@ -298,10 +295,8 @@ export async function reorderShapes(newShapesOrder) {
       shapes: newShapesOrder,
       lastUpdated: serverTimestamp(),
     });
-    
-    console.log('✅ Shapes reordered successfully');
   } catch (error) {
-    console.error('❌ Error reordering shapes:', error);
+    console.error('Error reordering shapes:', error);
     throw error;
   }
 }
@@ -323,7 +318,6 @@ export async function bringToFront(shapeId) {
     
     // Already at front
     if (shapeIndex === shapes.length - 1) {
-      console.log('Shape already at front');
       return;
     }
     
@@ -333,9 +327,8 @@ export async function bringToFront(shapeId) {
     newShapes.push(shape);
     
     await reorderShapes(newShapes);
-    console.log('✅ Brought shape to front:', shapeId);
   } catch (error) {
-    console.error('❌ Error bringing to front:', error);
+    console.error('Error bringing to front:', error);
     throw error;
   }
 }
@@ -357,7 +350,6 @@ export async function sendToBack(shapeId) {
     
     // Already at back
     if (shapeIndex === 0) {
-      console.log('Shape already at back');
       return;
     }
     
@@ -367,9 +359,8 @@ export async function sendToBack(shapeId) {
     newShapes.unshift(shape);
     
     await reorderShapes(newShapes);
-    console.log('✅ Sent shape to back:', shapeId);
   } catch (error) {
-    console.error('❌ Error sending to back:', error);
+    console.error('Error sending to back:', error);
     throw error;
   }
 }
@@ -386,13 +377,11 @@ export async function bringForward(shapeId) {
     const shapeIndex = shapes.findIndex(s => s.id === shapeId);
     
     if (shapeIndex === -1) {
-      console.log('Shape not found');
       return;
     }
     
     // Already at front
     if (shapeIndex === shapes.length - 1) {
-      console.log('Shape already at front');
       return;
     }
     
@@ -402,9 +391,8 @@ export async function bringForward(shapeId) {
       [newShapes[shapeIndex + 1], newShapes[shapeIndex]];
     
     await reorderShapes(newShapes);
-    console.log('✅ Brought shape forward:', shapeId);
   } catch (error) {
-    console.error('❌ Error bringing forward:', error);
+    console.error('Error bringing forward:', error);
     throw error;
   }
 }
@@ -421,13 +409,11 @@ export async function sendBackward(shapeId) {
     const shapeIndex = shapes.findIndex(s => s.id === shapeId);
     
     if (shapeIndex === -1) {
-      console.log('Shape not found');
       return;
     }
     
     // Already at back
     if (shapeIndex === 0) {
-      console.log('Shape already at back');
       return;
     }
     
@@ -437,9 +423,8 @@ export async function sendBackward(shapeId) {
       [newShapes[shapeIndex - 1], newShapes[shapeIndex]];
     
     await reorderShapes(newShapes);
-    console.log('✅ Sent shape backward:', shapeId);
   } catch (error) {
-    console.error('❌ Error sending backward:', error);
+    console.error('Error sending backward:', error);
     throw error;
   }
 }

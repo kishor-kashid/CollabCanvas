@@ -25,7 +25,6 @@ export function initializeOpenAI() {
       apiKey: OPENAI_CONFIG.apiKey,
       dangerouslyAllowBrowser: true, // Note: In production, use a backend proxy
     });
-    console.log('✅ OpenAI client initialized');
   }
 
   return openaiClient;
@@ -69,21 +68,11 @@ export async function sendMessage(messages, tools = [], options = {}) {
       requestPayload.tool_choice = 'auto'; // Let AI decide when to use tools
     }
 
-    console.log('🤖 Sending message to OpenAI...', {
-      messageCount: messages.length,
-      toolCount: tools.length,
-    });
-
     const response = await client.chat.completions.create(requestPayload);
-
-    console.log('✅ Received response from OpenAI', {
-      finishReason: response.choices[0].finish_reason,
-      hasToolCalls: !!response.choices[0].message.tool_calls,
-    });
 
     return response;
   } catch (error) {
-    console.error('❌ OpenAI API Error:', error);
+    console.error('OpenAI API Error:', error);
     
     if (error.code === 'invalid_api_key') {
       throw new Error(ERROR_MESSAGES.apiKeyMissing);
@@ -135,23 +124,16 @@ export async function streamChatCompletion(
       requestPayload.tool_choice = 'auto';
     }
 
-    console.log('🤖 Starting streaming response...', {
-      messageCount: messages.length,
-      toolCount: tools.length,
-    });
-
     const stream = await client.chat.completions.create(requestPayload, {
       signal, // Pass abort signal for cancellation
     });
 
     let fullContent = '';
     let toolCalls = [];
-    let currentToolCall = null;
 
     for await (const chunk of stream) {
       // Check if streaming was cancelled
       if (signal?.aborted) {
-        console.log('⚠️ Streaming cancelled by user');
         break;
       }
 
@@ -207,12 +189,6 @@ export async function streamChatCompletion(
 
       // Handle completion
       if (finishReason) {
-        console.log('✅ Streaming completed', {
-          finishReason,
-          contentLength: fullContent.length,
-          toolCallCount: toolCalls.length,
-        });
-
         onComplete({
           content: fullContent,
           toolCalls: toolCalls.length > 0 ? toolCalls : null,
@@ -222,10 +198,9 @@ export async function streamChatCompletion(
       }
     }
   } catch (error) {
-    console.error('❌ Streaming Error:', error);
+    console.error('Streaming Error:', error);
     
     if (error.name === 'AbortError') {
-      console.log('⚠️ Streaming aborted');
       return; // Don't treat cancellation as an error
     }
     
@@ -254,18 +229,12 @@ export async function handleFunctionCalls(toolCalls, executeToolFn) {
     return [];
   }
 
-  console.log('🔧 Executing function calls...', {
-    count: toolCalls.length,
-  });
-
   const results = [];
 
   for (const toolCall of toolCalls) {
     try {
       const functionName = toolCall.function.name;
       const functionArgs = JSON.parse(toolCall.function.arguments);
-
-      console.log(`🔧 Executing: ${functionName}`, functionArgs);
 
       // Execute the tool via the provided executor function
       const result = await executeToolFn(functionName, functionArgs);
@@ -276,10 +245,8 @@ export async function handleFunctionCalls(toolCalls, executeToolFn) {
         name: functionName,
         content: JSON.stringify(result),
       });
-
-      console.log(`✅ ${functionName} completed`, result);
     } catch (error) {
-      console.error(`❌ Error executing ${toolCall.function.name}:`, error);
+      console.error(`Error executing ${toolCall.function.name}:`, error);
       
       results.push({
         tool_call_id: toolCall.id,
@@ -319,23 +286,15 @@ export function validateAPIKey(apiKey) {
  */
 export async function testConnection() {
   try {
-    console.log('🧪 Testing OpenAI connection...');
-    
     const response = await sendMessage([
       { role: 'user', content: 'Hello, are you working?' },
     ]);
 
     const success = !!response.choices[0]?.message?.content;
     
-    if (success) {
-      console.log('✅ OpenAI connection test successful');
-    } else {
-      console.warn('⚠️ OpenAI connection test returned unexpected response');
-    }
-    
     return success;
   } catch (error) {
-    console.error('❌ OpenAI connection test failed:', error);
+    console.error('OpenAI connection test failed:', error);
     return false;
   }
 }

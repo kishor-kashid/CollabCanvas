@@ -4,18 +4,13 @@ import { SHAPE_TYPES } from '../utils/constants';
 import { LAYOUT_TEMPLATES } from '../utils/aiConstants';
 import {
   parseColor,
-  calculateCenter,
   calculateViewportCenter,
-  parsePosition,
   findShapesByDescription,
-  getLargestShape,
-  getSmallestShape,
   validatePosition,
   validateDimensions,
   calculateGridPositions,
   calculateHorizontalLayout,
   calculateVerticalLayout,
-  parseNumericValue,
   generateShapeDescription,
   serializeCanvasState,
 } from './aiHelpers';
@@ -649,15 +644,6 @@ async function executeDeleteShapes(params, context) {
     }
     
     // Filter out shapes locked by other users
-    // Log shape lock status for debugging
-    console.log('🔍 Checking locks before delete:', shapesToDelete.map(s => ({
-      id: s.id,
-      type: s.type,
-      isLocked: s.isLocked,
-      lockedBy: s.lockedBy,
-      currentUser: context.currentUserId,
-    })));
-    
     const lockedShapes = shapesToDelete.filter(
       s => s.isLocked && s.lockedBy && s.lockedBy !== context.currentUserId
     );
@@ -665,10 +651,7 @@ async function executeDeleteShapes(params, context) {
       s => !s.isLocked || !s.lockedBy || s.lockedBy === context.currentUserId
     );
     
-    console.log(`🔒 Found ${lockedShapes.length} locked shapes, ${unlockedShapes.length} unlocked shapes`);
-    
     if (unlockedShapes.length === 0) {
-      console.warn('⚠️ All shapes are locked by other users');
       return {
         success: false,
         error: `Cannot delete: All ${shapesToDelete.length} matching shape${shapesToDelete.length !== 1 ? 's are' : ' is'} currently being edited by other users. Note: Shapes you are editing can be deleted.`,
@@ -680,7 +663,6 @@ async function executeDeleteShapes(params, context) {
     const actuallySkipped = [];
     
     for (const shape of unlockedShapes) {
-      console.log(`🗑️ Attempting to delete shape: ${shape.id}`);
       const success = await context.deleteShape(shape.id);
       if (success) {
         actuallyDeleted.push(shape);
@@ -691,9 +673,6 @@ async function executeDeleteShapes(params, context) {
     
     // Add pre-filtered locked shapes to skipped
     actuallySkipped.push(...lockedShapes);
-    
-    console.log(`✅ Actually deleted: ${actuallyDeleted.length} shapes`);
-    console.log(`⏭️ Skipped: ${actuallySkipped.length} shapes (locked by others)`);
     
     // Check if nothing was actually deleted
     if (actuallyDeleted.length === 0) {
@@ -1020,8 +999,6 @@ async function executeCreateComplexLayout(params, context) {
  * @returns {Promise<Object>} Execution result
  */
 export async function executeTool(toolName, params, context) {
-  console.log(`🔧 Executing tool: ${toolName}`, params);
-  
   try {
     let result;
     
@@ -1077,10 +1054,9 @@ export async function executeTool(toolName, params, context) {
         };
     }
     
-    console.log(`✅ Tool ${toolName} completed:`, result);
     return result;
   } catch (error) {
-    console.error(`❌ Tool ${toolName} failed:`, error);
+    console.error(`Tool ${toolName} failed:`, error);
     return {
       success: false,
       error: error.message || 'Tool execution failed',

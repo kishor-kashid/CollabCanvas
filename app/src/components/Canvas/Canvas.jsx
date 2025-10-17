@@ -1,6 +1,6 @@
 // Canvas Component - Main collaborative canvas with Konva
 
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState, useMemo } from 'react';
 import { Stage, Layer, Rect, Line, Text } from 'react-konva';
 import { CanvasContext } from '../../contexts/CanvasContext';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
@@ -16,6 +16,13 @@ import { streamChatCompletion, handleFunctionCalls } from '../../services/aiServ
 import { getToolSchemas, executeTool } from '../../services/aiTools';
 import { serializeCanvasState } from '../../services/aiHelpers';
 import { loadMessages, saveMessage, clearHistory } from '../../services/chatHistory';
+import { 
+  generateGridLines, 
+  calculateConstrainedPosition,
+  exportStageToPNG,
+  downloadDataURL,
+  getAIErrorMessage
+} from '../../utils/canvasHelpers';
 
 export default function Canvas() {
   const {
@@ -34,7 +41,7 @@ export default function Canvas() {
     unlockShape,
     addShape,
     loading,
-    isOnline,
+    // isOnline, // Available but not currently used
     currentUserId,
     exportSelectionMode,
     setExportSelectionMode,
@@ -62,7 +69,6 @@ export default function Canvas() {
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [aiMessages, setAiMessages] = useState([]);
   const [isAILoading, setIsAILoading] = useState(false);
-  const [isChatHistoryLoading, setIsChatHistoryLoading] = useState(false);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
   
   useEffect(() => {
@@ -78,19 +84,14 @@ export default function Canvas() {
   useEffect(() => {
     const loadChatHistory = async () => {
       if (isAIChatOpen && currentUserId && !hasLoadedHistory) {
-        setIsChatHistoryLoading(true);
         try {
-          console.log('📖 Loading chat history for user:', currentUserId);
           const messages = await loadMessages(currentUserId, 50);
-          console.log('📖 Loaded messages:', messages.length);
           if (messages.length > 0) {
             setAiMessages(messages);
           }
           setHasLoadedHistory(true);
         } catch (error) {
           console.error('Failed to load chat history:', error);
-        } finally {
-          setIsChatHistoryLoading(false);
         }
       }
     };
@@ -155,40 +156,8 @@ export default function Canvas() {
           }
           
           if (deltaX !== 0 || deltaY !== 0) {
-            // Calculate new position
-            let newX = selectedShape.x + deltaX;
-            let newY = selectedShape.y + deltaY;
-            
-            // Apply boundary constraints based on shape type
-            if (selectedShape.type === 'circle') {
-              // For circles, x and y represent the CENTER
-              const effectiveRadius = selectedShape.radius * Math.max(selectedShape.scaleX || 1, selectedShape.scaleY || 1);
-              newX = Math.max(effectiveRadius, Math.min(newX, CANVAS_WIDTH - effectiveRadius));
-              newY = Math.max(effectiveRadius, Math.min(newY, CANVAS_HEIGHT - effectiveRadius));
-            } else {
-              // For rectangles, x and y represent the TOP-LEFT corner
-              // Need to account for rotation using bounding box
-              const shapeWidth = (selectedShape.width || 0) * (selectedShape.scaleX || 1);
-              const shapeHeight = (selectedShape.height || 0) * (selectedShape.scaleY || 1);
-              
-              // Simple constraint for non-rotated or slightly rotated shapes
-              if (!selectedShape.rotation || Math.abs(selectedShape.rotation) < 5) {
-                newX = Math.max(0, Math.min(newX, CANVAS_WIDTH - shapeWidth));
-                newY = Math.max(0, Math.min(newY, CANVAS_HEIGHT - shapeHeight));
-              } else {
-                // For rotated rectangles, use a more conservative boundary
-                // Calculate the diagonal to ensure the rotated shape fits
-                const diagonal = Math.sqrt(shapeWidth * shapeWidth + shapeHeight * shapeHeight) / 2;
-                newX = Math.max(diagonal, Math.min(newX, CANVAS_WIDTH - diagonal));
-                newY = Math.max(diagonal, Math.min(newY, CANVAS_HEIGHT - diagonal));
-              }
-            }
-            
-            // Update shape position with constrained values
-            updateShape(editModeShapeId, {
-              x: newX,
-              y: newY
-            });
+            const newPosition = calculateConstrainedPosition(selectedShape, deltaX, deltaY);
+            updateShape(editModeShapeId, newPosition);
           }
         }
       }
@@ -262,16 +231,6 @@ export default function Canvas() {
     const pointerPosition = stage.getRelativePointerPosition();
     if (!pointerPosition) return;
     
-    // Debug: Log cursor position every 100 updates
-    if (Math.random() < 0.01) {
-      console.log('📍 My cursor position (canvas coords):', {
-        x: Math.round(pointerPosition.x),
-        y: Math.round(pointerPosition.y),
-        scale: scale.toFixed(2),
-        stagePos: { x: Math.round(position.x), y: Math.round(position.y) }
-      });
-    }
-    
     // Update cursor position in RTDB (already in canvas coordinates)
     updateCursor(pointerPosition.x, pointerPosition.y);
   };
@@ -309,24 +268,20 @@ export default function Canvas() {
   
   // Handle text change for text shapes
   const handleTextChange = (id) => async (newText) => {
-    console.log('💾 Updating text for shape:', id, 'New text:', newText);
     await updateShape(id, { text: newText });
-    console.log('✅ Text updated successfully');
   };
   
   // Handle text edit start - acquire lock
   const handleTextEditLock = (id) => async () => {
-    console.log('📝 Acquiring lock for text editing:', id);
     const success = await lockShape(id);
     if (!success) {
-      console.warn('⚠️ Could not acquire lock for text editing');
+      console.warn('Could not acquire lock for text editing');
     }
     return success;
   };
   
   // Handle text edit end - release lock
   const handleTextEditUnlock = (id) => async () => {
-    console.log('📝 Releasing lock after text editing:', id);
     await unlockShape(id);
   };
   
@@ -339,7 +294,6 @@ export default function Canvas() {
   
   // Handle color edit lock (for rectangles/circles)
   const handleColorEditLock = (id) => async () => {
-    console.log('🎨 Acquiring lock for color editing:', id);
     const success = await lockShape(id);
     if (success) {
       setIsColorPickerOpen(true);
@@ -350,7 +304,6 @@ export default function Canvas() {
   
   // Handle color edit unlock (for rectangles/circles)
   const handleColorEditUnlock = (id) => async () => {
-    console.log('🎨 Releasing lock for color editing:', id);
     await unlockShape(id);
     setIsColorPickerOpen(false);
     setEditModeShapeId(null); // Exit edit mode
@@ -424,63 +377,16 @@ export default function Canvas() {
     if (!stageRef?.current || !selectionBox) return;
     
     try {
-      // Set exporting state to show loading cursor
       setIsExportingSelection(true);
       
       const stage = stageRef.current;
+      const dataURL = await exportStageToPNG(stage, selectionBox, setSelectionBox);
       
-      // Normalize selection box (handle negative width/height)
-      const normalizedX = selectionBox.width < 0 ? selectionBox.x + selectionBox.width : selectionBox.x;
-      const normalizedY = selectionBox.height < 0 ? selectionBox.y + selectionBox.height : selectionBox.y;
-      const normalizedWidth = Math.abs(selectionBox.width);
-      const normalizedHeight = Math.abs(selectionBox.height);
-      
-      // Store the selection box to restore later
-      const savedSelectionBox = { ...selectionBox };
-      
-      // Temporarily hide selection box
-      setSelectionBox(null);
-      
-      // Wait for React to update (hide the selection rectangle)
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Store original view settings
-      const originalScale = stage.scaleX();
-      const originalPosition = { x: stage.x(), y: stage.y() };
-      
-      // Temporarily reset to default view
-      stage.scale({ x: 1, y: 1 });
-      stage.position({ x: 0, y: 0 });
-      
-      // Generate PNG for selected area at full quality
-      const dataURL = stage.toDataURL({
-        pixelRatio: 1, // Full quality
-        mimeType: 'image/png',
-        quality: 1,
-        x: normalizedX,
-        y: normalizedY,
-        width: normalizedWidth,
-        height: normalizedHeight
-      });
-      
-      // Restore original view
-      stage.scale({ x: originalScale, y: originalScale });
-      stage.position(originalPosition);
-      
-      // Trigger download
-      const link = document.createElement('a');
-      link.download = `collabcanvas-selection-${Date.now()}.png`;
-      link.href = dataURL;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      console.log('✅ Selection exported successfully');
+      downloadDataURL(dataURL, `collabcanvas-selection-${Date.now()}.png`);
     } catch (error) {
-      console.error('❌ Export failed:', error);
+      console.error('Export failed:', error);
       alert('Failed to export selection. Please try again.');
     } finally {
-      // Reset exporting state
       setIsExportingSelection(false);
     }
   };
@@ -536,43 +442,15 @@ export default function Canvas() {
     await unlockShape(id);
   };
   
-  // Generate grid lines for visual reference
-  const generateGrid = () => {
-    const lines = [];
-    const gridSize = 100; // Grid cell size in pixels
-    const lineColor = '#e0e0e0';
-    const majorLineColor = '#bdbdbd';
-    
-    // Vertical lines
-    for (let i = 0; i <= CANVAS_WIDTH; i += gridSize) {
-      const isMajor = i % 500 === 0; // Every 500px is a major line
-      lines.push(
-        <Line
-          key={`v-${i}`}
-          points={[i, 0, i, CANVAS_HEIGHT]}
-          stroke={isMajor ? majorLineColor : lineColor}
-          strokeWidth={isMajor ? 1 : 0.5}
-          listening={false}
-        />
-      );
-    }
-    
-    // Horizontal lines
-    for (let i = 0; i <= CANVAS_HEIGHT; i += gridSize) {
-      const isMajor = i % 500 === 0;
-      lines.push(
-        <Line
-          key={`h-${i}`}
-          points={[0, i, CANVAS_WIDTH, i]}
-          stroke={isMajor ? majorLineColor : lineColor}
-          strokeWidth={isMajor ? 1 : 0.5}
-          listening={false}
-        />
-      );
-    }
-    
-    return lines;
-  };
+  
+  // Get selected shape for formatting toolbar (memoized for performance)
+  const selectedShape = useMemo(() => 
+    shapes.find(s => s.id === selectedId), 
+    [shapes, selectedId]
+  );
+  
+  // Memoize grid lines to avoid regenerating on every render
+  const gridLines = useMemo(() => generateGridLines(), []);
   
   // Show loading state
   if (loading) {
@@ -586,9 +464,6 @@ export default function Canvas() {
       </div>
     );
   }
-  
-  // Get selected shape for formatting toolbar
-  const selectedShape = shapes.find(s => s.id === selectedId);
   
   return (
     <div className="relative w-full h-full overflow-hidden bg-gray-100">
@@ -682,7 +557,15 @@ export default function Canvas() {
           />
           
           {/* Grid */}
-          {generateGrid()}
+          {gridLines.map(line => (
+            <Line
+              key={line.key}
+              points={line.points}
+              stroke={line.stroke}
+              strokeWidth={line.strokeWidth}
+              listening={false}
+            />
+          ))}
           
           {/* Canvas Border */}
           <Rect
@@ -779,16 +662,6 @@ export default function Canvas() {
           return null;
         }
         
-            // Debug: Log received cursor positions occasionally
-            if (Math.random() < 0.005) {
-              console.log('👁️ Rendering cursor for', cursor.displayName, '(canvas coords):', {
-                x: Math.round(cursor.cursorX),
-                y: Math.round(cursor.cursorY),
-                myScale: scale.toFixed(2),
-                myStagePos: { x: Math.round(position.x), y: Math.round(position.y) }
-              });
-            }
-        
         return (
               <CursorMarker
             key={userId}
@@ -825,13 +698,11 @@ export default function Canvas() {
         onClose={() => setIsAIChatOpen(false)}
         onClearHistory={async () => {
           try {
-            console.log('🗑️ Clearing chat history for user:', currentUserId);
             await clearHistory(currentUserId);
             setAiMessages([]);
             setHasLoadedHistory(false); // Allow reloading
-            console.log('✅ Chat history cleared');
           } catch (error) {
-            console.error('❌ Failed to clear chat history:', error);
+            console.error('Failed to clear chat history:', error);
             alert('Failed to clear chat history. Please try again.');
           }
         }}
@@ -916,11 +787,8 @@ export default function Canvas() {
               },
               // onComplete callback
               async (result) => {
-                console.log('🤖 Stream complete:', result);
-                
                 // Handle function calls if any
                 if (result.toolCalls && result.toolCalls.length > 0) {
-                  console.log('🔧 Executing tool calls:', result.toolCalls);
                   
                   // Show function execution in progress
                   const functionMessages = result.toolCalls.map(tc => ({
@@ -998,7 +866,7 @@ export default function Canvas() {
                         finalResponse += chunk.content;
                       }
                     },
-                    async (finalResult) => {
+                    async () => {
                       const assistantMessage = {
                         role: 'assistant',
                         content: finalResponse,
@@ -1052,21 +920,9 @@ export default function Canvas() {
               },
               // onError callback
               (error) => {
-                console.error('🚨 AI Error:', error);
+                console.error('AI Error:', error);
                 
-                // Provide user-friendly error messages
-                let errorMessage = 'Sorry, I encountered an error. Please try again.';
-                if (error?.includes('API key')) {
-                  errorMessage = '🔑 AI is not configured. Please add your OpenAI API key to continue.';
-                } else if (error?.includes('network') || error?.includes('fetch')) {
-                  errorMessage = '📡 Connection lost. Please check your internet and try again.';
-                } else if (error?.includes('rate limit')) {
-                  errorMessage = '⏱️ Too many requests. Please wait a moment and try again.';
-                } else if (error?.includes('timeout')) {
-                  errorMessage = '⏱️ Request timed out. The AI is taking too long to respond. Please try again.';
-                } else if (error) {
-                  errorMessage = `❌ ${error}`;
-                }
+                const errorMessage = getAIErrorMessage(error);
                 
                 setAiMessages(prev => [...prev, {
                   role: 'assistant',
@@ -1079,15 +935,9 @@ export default function Canvas() {
               }
             );
           } catch (error) {
-            console.error('🚨 Message send error:', error);
+            console.error('Message send error:', error);
             
-            // Provide user-friendly error messages
-            let errorMessage = '❌ Failed to send message. Please try again.';
-            if (error?.message?.includes('API key')) {
-              errorMessage = '🔑 AI is not configured. Please add your OpenAI API key to continue.';
-            } else if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
-              errorMessage = '📡 Connection lost. Please check your internet and try again.';
-            }
+            const errorMessage = getAIErrorMessage(error);
             
             setAiMessages(prev => [...prev, {
               role: 'assistant',

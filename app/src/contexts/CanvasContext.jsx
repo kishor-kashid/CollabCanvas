@@ -43,7 +43,6 @@ export function CanvasProvider({ children }) {
   
   // Clean up stale sessions on mount
   useEffect(() => {
-    console.log('🧹 Running stale session cleanup on canvas mount...');
     cleanupStaleSessions(2 * 60 * 1000); // Clean up sessions older than 2 minutes
   }, []);
   
@@ -133,7 +132,7 @@ export function CanvasProvider({ children }) {
   
   // Generate unique ID for shapes
   const generateShapeId = () => {
-    return `shape_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `shape_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   };
   
   // Add a new shape (syncs to Firestore)
@@ -221,11 +220,7 @@ export function CanvasProvider({ children }) {
       // Check if shape is locked by another user
       const shape = shapes.find(s => s.id === id);
       if (shape?.isLocked && shape.lockedBy !== currentUser.uid) {
-        console.warn('❌ Cannot delete: Shape is locked by another user', {
-          shapeId: id,
-          lockedBy: shape.lockedBy,
-          currentUser: currentUser.uid
-        });
+        console.warn('Cannot delete: Shape is locked by another user');
         return false;
       }
       
@@ -233,7 +228,6 @@ export function CanvasProvider({ children }) {
       if (selectedId === id) {
         setSelectedId(null);
       }
-      console.log('✅ Successfully deleted shape:', id);
       return true;
     } catch (error) {
       console.error('Error deleting shape:', error);
