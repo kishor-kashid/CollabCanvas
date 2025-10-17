@@ -4,6 +4,7 @@ import { useContext, useState, useEffect, useRef } from 'react';
 import { CanvasContext } from '../../contexts/CanvasContext';
 import { SHAPE_TYPES, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
 import LayersPanel from './LayersPanel';
+import OpacityBlendControls from './OpacityBlendControls';
 
 export default function CanvasControls() {
   const { 
@@ -16,6 +17,8 @@ export default function CanvasControls() {
     stageRef,
     setExportSelectionMode,
     selectedId,
+    shapes,
+    updateShape,
     bringShapeToFront,
     sendShapeToBack,
     bringShapeForward,
@@ -25,14 +28,18 @@ export default function CanvasControls() {
   const [showExportPanel, setShowExportPanel] = useState(false);
   const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [showFullLayersPanel, setShowFullLayersPanel] = useState(false);
+  const [showOpacityBlend, setShowOpacityBlend] = useState(false);
   const layerPanelRef = useRef(null);
   const layerButtonRef = useRef(null);
   const exportButtonRef = useRef(null);
   const fullLayersPanelButtonRef = useRef(null);
   const fullLayersPanelRef = useRef(null);
+  const opacityBlendButtonRef = useRef(null);
+  const opacityBlendPanelRef = useRef(null);
   const [layerPanelTop, setLayerPanelTop] = useState(0);
   const [exportPanelTop, setExportPanelTop] = useState(0);
   const [fullLayersPanelTop, setFullLayersPanelTop] = useState(0);
+  const [opacityBlendPanelTop, setOpacityBlendPanelTop] = useState(0);
   
   // Calculate layer panel position when it opens
   useEffect(() => {
@@ -73,6 +80,19 @@ export default function CanvasControls() {
     }
   }, [showFullLayersPanel]);
   
+  // Calculate opacity blend panel position when it opens
+  useEffect(() => {
+    if (showOpacityBlend && opacityBlendButtonRef.current) {
+      const buttonRect = opacityBlendButtonRef.current.getBoundingClientRect();
+      const controlsRect = layerPanelRef.current.getBoundingClientRect();
+      
+      // Calculate center of the button section relative to the controls panel
+      const buttonCenter = buttonRect.top + buttonRect.height / 2;
+      const topOffset = buttonCenter - controlsRect.top;
+      setOpacityBlendPanelTop(topOffset);
+    }
+  }, [showOpacityBlend]);
+  
   // Close panels when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -85,13 +105,18 @@ export default function CanvasControls() {
           layerPanelRef.current && !layerPanelRef.current.contains(event.target)) {
         setShowFullLayersPanel(false);
       }
+      // Close opacity blend panel if clicking outside both the controls and the panel
+      if (opacityBlendPanelRef.current && !opacityBlendPanelRef.current.contains(event.target) &&
+          layerPanelRef.current && !layerPanelRef.current.contains(event.target)) {
+        setShowOpacityBlend(false);
+      }
     };
     
-    if (showLayerPanel || showExportPanel || showFullLayersPanel) {
+    if (showLayerPanel || showExportPanel || showFullLayersPanel || showOpacityBlend) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [showLayerPanel, showExportPanel, showFullLayersPanel]);
+  }, [showLayerPanel, showExportPanel, showFullLayersPanel, showOpacityBlend]);
   
   // Calculate viewport center in canvas coordinates, clamped to canvas bounds
   const getViewportCenterInCanvas = () => {
@@ -182,6 +207,20 @@ export default function CanvasControls() {
   const handleStartSelectionMode = () => {
     setShowExportPanel(false);
     setExportSelectionMode(true);
+  };
+  
+  // Handle opacity change
+  const handleOpacityChange = (opacity) => {
+    if (selectedId) {
+      updateShape(selectedId, { opacity });
+    }
+  };
+
+  // Handle blend mode change
+  const handleBlendModeChange = (blendMode) => {
+    if (selectedId) {
+      updateShape(selectedId, { blendMode });
+    }
   };
   
   return (
@@ -314,6 +353,26 @@ export default function CanvasControls() {
             <span>Layers Panel</span>
           </button>
           <p className="text-xs text-gray-500 text-center mt-2">Visibility & lock</p>
+        </div>
+        
+        {/* Opacity & Blend Mode Button */}
+        <div ref={opacityBlendButtonRef} className="pt-2 border-t border-gray-200">
+          <button
+            onClick={() => setShowOpacityBlend(!showOpacityBlend)}
+            disabled={!selectedId}
+            className={`w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition duration-200 font-medium text-sm ${
+              selectedId
+                ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white shadow-md'
+                : 'bg-gray-300 cursor-not-allowed text-gray-500'
+            }`}
+            title="Opacity & Blend Modes"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+            </svg>
+            <span>Opacity & Blend</span>
+          </button>
+          <p className="text-xs text-gray-500 text-center mt-2">Advanced effects</p>
         </div>
         
         {/* Export Section */}
@@ -517,6 +576,26 @@ export default function CanvasControls() {
           <LayersPanel 
             isOpen={showFullLayersPanel} 
             onClose={() => setShowFullLayersPanel(false)} 
+          />
+      </div>
+      )}
+      
+      {/* Opacity & Blend Controls - Floating dropdown */}
+      {showOpacityBlend && selectedId && (
+        <div
+          ref={opacityBlendPanelRef}
+          className="absolute z-40"
+          style={{
+            left: 'calc(100% + 12px)',
+            top: `${opacityBlendPanelTop}px`,
+            transform: 'translateY(-50%)',
+          }}
+        >
+          <OpacityBlendControls
+            selectedShape={shapes.find(s => s.id === selectedId)}
+            onOpacityChange={handleOpacityChange}
+            onBlendModeChange={handleBlendModeChange}
+            onClose={() => setShowOpacityBlend(false)}
           />
         </div>
       )}

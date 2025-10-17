@@ -56,7 +56,7 @@ function LayerItem({ shape, isSelected, onSelect, onToggleVisibility, onToggleLo
     if (shape.type === 'text') {
       return shape.text?.substring(0, 20) || 'Text';
     }
-    return `${shape.type.charAt(0).toUpperCase() + shape.type.slice(1)} ${shape.id.split('_')[1]?.substring(0, 4) || ''}`;
+    return `${shape.type.charAt(0).toUpperCase() + shape.type.slice(1)} ${shape.id.split('_')[2]?.substring(0, 4) || ''}`;
   };
 
   const isVisible = shape.visible !== false;

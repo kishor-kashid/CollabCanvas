@@ -22,6 +22,8 @@ export default function Shape({
   rotation = 0,
   scaleX = 1,
   scaleY = 1,
+  opacity = 1.0, // Opacity (0.0 to 1.0)
+  blendMode = 'source-over', // Blend mode
   isSelected, 
   isLocked, 
   isLayerLocked, // Layer-level lock (prevents all editing)
@@ -127,7 +129,10 @@ export default function Shape({
     onDragEnd,
     onTransformStart,
     onTransformEnd,
-    opacity: (isLocked || isLayerLocked) ? 0.7 : 1,
+    // Apply opacity (reduce if locked, otherwise use shape opacity)
+    opacity: (isLocked || isLayerLocked) ? 0.7 : (opacity || 1.0),
+    // Apply blend mode
+    globalCompositeOperation: blendMode || 'source-over',
   };
   
   // Render shape based on type

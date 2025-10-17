@@ -645,6 +645,8 @@ export default function Canvas() {
               rotation={shape.rotation || 0}
               scaleX={shape.scaleX || 1}
               scaleY={shape.scaleY || 1}
+              opacity={shape.opacity || 1.0}
+              blendMode={shape.blendMode || 'source-over'}
               isSelected={shape.id === selectedId}
               isLocked={shape.isLocked && shape.lockedBy !== currentUserId}
               lockedBy={shape.lockedBy}

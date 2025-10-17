@@ -121,6 +121,12 @@ export function CanvasProvider({ children }) {
   
   // Handle stage drag end (pan)
   const handleDragEnd = (e) => {
+    // Only update stage position if the stage itself was dragged, not a shape
+    const stage = e.target.getStage();
+    if (e.target !== stage) {
+      return; // A shape was dragged, not the stage - ignore
+    }
+    
     const newPos = constrainPosition(
       { x: e.target.x(), y: e.target.y() },
       scale
@@ -148,6 +154,8 @@ export function CanvasProvider({ children }) {
         rotation: 0,
         scaleX: 1,
         scaleY: 1,
+        opacity: 1.0, // Default: fully opaque
+        blendMode: 'source-over', // Default: normal blend mode
       };
       
       // Add type-specific properties
