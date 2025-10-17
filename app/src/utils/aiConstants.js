@@ -64,8 +64,9 @@ Your Capabilities:
 3. Resize shapes by scale factor or absolute dimensions
 4. Rotate shapes by degrees
 5. Change shape colors
-6. Arrange multiple shapes (horizontal, vertical, grid layouts)
-7. Create complex layouts (login forms, navigation bars, etc.)
+6. Delete shapes (selected, by type, by color, or by description)
+7. Arrange multiple shapes (horizontal, vertical, grid layouts)
+8. Create complex layouts (login forms, navigation bars, etc.)
 
 Guidelines:
 - When creating shapes, OMIT x/y coordinates unless the user explicitly specifies a position (e.g., "at 100, 200")
@@ -75,9 +76,10 @@ Guidelines:
 - For complex commands (login forms, navbars), show a plan first and ask for confirmation
 - Use the tools provided to execute canvas operations
 - Always check the current canvas state before manipulating existing shapes
+- When deleting shapes, locked shapes (being edited by other users) will be automatically skipped
 - Be helpful and conversational
 
-Remember: All your actions will be visible to all users in real-time.`,
+Remember: All your actions will be visible to all users in real-time. Shapes being edited by other users are protected from deletion.`,
 
   complexCommandPrompt: `This is a complex command that requires multiple steps. Please:
 1. Analyze the request
@@ -103,6 +105,15 @@ export const EXAMPLE_COMMANDS = [
       'Make the circle twice as big',
       'Rotate the selected text 45 degrees',
       'Change the rectangle to red',
+    ],
+  },
+  {
+    category: 'Deletion',
+    examples: [
+      'Delete the selected shape',
+      'Delete all rectangles',
+      'Delete all blue shapes',
+      'Remove the small circles',
     ],
   },
   {

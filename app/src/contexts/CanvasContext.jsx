@@ -215,22 +215,29 @@ export function CanvasProvider({ children }) {
   
   // Delete shape (syncs to Firestore)
   const deleteShape = async (id) => {
-    if (!currentUser) return;
+    if (!currentUser) return false;
     
     try {
       // Check if shape is locked by another user
       const shape = shapes.find(s => s.id === id);
       if (shape?.isLocked && shape.lockedBy !== currentUser.uid) {
-        console.warn('Cannot delete: Shape is locked by another user');
-        return;
+        console.warn('❌ Cannot delete: Shape is locked by another user', {
+          shapeId: id,
+          lockedBy: shape.lockedBy,
+          currentUser: currentUser.uid
+        });
+        return false;
       }
       
       await canvasService.deleteShape(id);
       if (selectedId === id) {
         setSelectedId(null);
       }
+      console.log('✅ Successfully deleted shape:', id);
+      return true;
     } catch (error) {
       console.error('Error deleting shape:', error);
+      return false;
     }
   };
   

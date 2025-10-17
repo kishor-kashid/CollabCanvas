@@ -198,7 +198,43 @@ export function getToolSchemas() {
       },
     },
 
-    // Tool 6: Arrange Shapes
+    // Tool 6: Delete Shapes
+    {
+      type: 'function',
+      function: {
+        name: 'deleteShapes',
+        description: 'Delete one or multiple shapes from the canvas. Can delete by ID, by description (e.g., "all blue rectangles"), by type (all rectangles), or by color (all blue shapes).',
+        parameters: {
+          type: 'object',
+          properties: {
+            shapeIds: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Array of specific shape IDs to delete. Use this if you have specific IDs from getCanvasState or selectShapesByDescription.',
+            },
+            deleteAll: {
+              type: 'boolean',
+              description: 'If true, delete ALL shapes on the canvas. Use with extreme caution.',
+            },
+            byType: {
+              type: 'string',
+              enum: ['rectangle', 'circle', 'text'],
+              description: 'Delete all shapes of this type (e.g., all rectangles).',
+            },
+            byColor: {
+              type: 'string',
+              description: 'Delete all shapes with this color (hex code or color name like "blue", "red").',
+            },
+            description: {
+              type: 'string',
+              description: 'Natural language description of shapes to delete (e.g., "blue rectangles", "small circles"). Will find and delete all matching shapes.',
+            },
+          },
+        },
+      },
+    },
+
+    // Tool 7: Arrange Shapes
     {
       type: 'function',
       function: {
@@ -568,6 +604,147 @@ async function executeChangeShapeColor(params, context) {
 }
 
 /**
+ * Execute deleteShapes tool
+ */
+async function executeDeleteShapes(params, context) {
+  try {
+    const { shapeIds, deleteAll, byType, byColor, description } = params;
+    
+    let shapesToDelete = [];
+    
+    // Method 1: Delete specific shape IDs
+    if (shapeIds && shapeIds.length > 0) {
+      shapesToDelete = context.shapes.filter(s => shapeIds.includes(s.id));
+    }
+    // Method 2: Delete all shapes
+    else if (deleteAll) {
+      shapesToDelete = [...context.shapes];
+    }
+    // Method 3: Delete by type
+    else if (byType) {
+      shapesToDelete = context.shapes.filter(s => s.type === byType);
+    }
+    // Method 4: Delete by color
+    else if (byColor) {
+      const targetColor = parseColor(byColor);
+      shapesToDelete = context.shapes.filter(s => s.fill === targetColor);
+    }
+    // Method 5: Delete by description
+    else if (description) {
+      shapesToDelete = findShapesByDescription(description, context.shapes);
+    }
+    // Method 6: Delete selected shape
+    else if (context.selectedId) {
+      const selectedShape = context.shapes.find(s => s.id === context.selectedId);
+      if (selectedShape) {
+        shapesToDelete = [selectedShape];
+      }
+    }
+    
+    if (shapesToDelete.length === 0) {
+      return {
+        success: false,
+        error: 'No shapes found matching the criteria',
+      };
+    }
+    
+    // Filter out shapes locked by other users
+    // Log shape lock status for debugging
+    console.log('🔍 Checking locks before delete:', shapesToDelete.map(s => ({
+      id: s.id,
+      type: s.type,
+      isLocked: s.isLocked,
+      lockedBy: s.lockedBy,
+      currentUser: context.currentUserId,
+    })));
+    
+    const lockedShapes = shapesToDelete.filter(
+      s => s.isLocked && s.lockedBy && s.lockedBy !== context.currentUserId
+    );
+    const unlockedShapes = shapesToDelete.filter(
+      s => !s.isLocked || !s.lockedBy || s.lockedBy === context.currentUserId
+    );
+    
+    console.log(`🔒 Found ${lockedShapes.length} locked shapes, ${unlockedShapes.length} unlocked shapes`);
+    
+    if (unlockedShapes.length === 0) {
+      console.warn('⚠️ All shapes are locked by other users');
+      return {
+        success: false,
+        error: `Cannot delete: All ${shapesToDelete.length} matching shape${shapesToDelete.length !== 1 ? 's are' : ' is'} currently being edited by other users. Note: Shapes you are editing can be deleted.`,
+      };
+    }
+    
+    // Delete shapes and track actual successes
+    const actuallyDeleted = [];
+    const actuallySkipped = [];
+    
+    for (const shape of unlockedShapes) {
+      console.log(`🗑️ Attempting to delete shape: ${shape.id}`);
+      const success = await context.deleteShape(shape.id);
+      if (success) {
+        actuallyDeleted.push(shape);
+      } else {
+        actuallySkipped.push(shape);
+      }
+    }
+    
+    // Add pre-filtered locked shapes to skipped
+    actuallySkipped.push(...lockedShapes);
+    
+    console.log(`✅ Actually deleted: ${actuallyDeleted.length} shapes`);
+    console.log(`⏭️ Skipped: ${actuallySkipped.length} shapes (locked by others)`);
+    
+    // Check if nothing was actually deleted
+    if (actuallyDeleted.length === 0) {
+      return {
+        success: false,
+        error: `Could not delete any shapes: All ${shapesToDelete.length} matching shape${shapesToDelete.length !== 1 ? 's are' : ' is'} currently locked by other users`,
+      };
+    }
+    
+    // Build descriptive message
+    let message;
+    const deletedCount = actuallyDeleted.length;
+    const skippedCount = actuallySkipped.length;
+    
+    if (deleteAll) {
+      message = `Deleted ${deletedCount} shape${deletedCount !== 1 ? 's' : ''}`;
+    } else if (byType) {
+      message = `Deleted ${deletedCount} ${byType}${deletedCount !== 1 ? 's' : ''}`;
+    } else if (byColor) {
+      message = `Deleted ${deletedCount} ${byColor} shape${deletedCount !== 1 ? 's' : ''}`;
+    } else if (description) {
+      message = `Deleted ${deletedCount} shape${deletedCount !== 1 ? 's' : ''} matching "${description}"`;
+    } else if (shapeIds) {
+      message = `Deleted ${deletedCount} shape${deletedCount !== 1 ? 's' : ''}`;
+    } else {
+      message = `Deleted selected shape`;
+    }
+    
+    // Add note about skipped locked shapes
+    if (skippedCount > 0) {
+      message += `. Skipped ${skippedCount} shape${skippedCount !== 1 ? 's' : ''} being edited by other users.`;
+    }
+    
+    return {
+      success: true,
+      message,
+      deletedCount: actuallyDeleted.length,
+      skippedCount: actuallySkipped.length,
+      deletedShapeIds: actuallyDeleted.map(s => s.id),
+      skippedShapeIds: actuallySkipped.map(s => s.id),
+    };
+  } catch (error) {
+    console.error('Error in executeDeleteShapes:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to delete shapes',
+    };
+  }
+}
+
+/**
  * Execute arrangeShapes tool
  */
 async function executeArrangeShapes(params, context) {
@@ -867,6 +1044,10 @@ export async function executeTool(toolName, params, context) {
       
       case 'changeShapeColor':
         result = await executeChangeShapeColor(params, context);
+        break;
+      
+      case 'deleteShapes':
+        result = await executeDeleteShapes(params, context);
         break;
       
       case 'arrangeShapes':
