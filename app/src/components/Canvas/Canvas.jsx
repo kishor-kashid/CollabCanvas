@@ -237,6 +237,12 @@ export default function Canvas() {
   
   // Handle shape selection
   const handleShapeSelect = (id) => {
+    // Check if shape is layer-locked
+    const shape = shapes.find(s => s.id === id);
+    if (shape?.layerLocked) {
+      console.log('⚠️ This layer is locked. Unlock it in the Layers panel to edit.');
+      return;
+    }
     selectShape(id);
   };
   
@@ -618,8 +624,10 @@ export default function Canvas() {
             listening={false}
           />
           
-          {/* Render Shapes */}
-          {shapes.map((shape) => (
+          {/* Render Shapes - Filter out hidden shapes */}
+          {shapes
+            .filter(shape => shape.visible !== false) // Only render visible shapes
+            .map((shape) => (
             <Shape
               key={shape.id}
               id={shape.id}
@@ -640,6 +648,7 @@ export default function Canvas() {
               isSelected={shape.id === selectedId}
               isLocked={shape.isLocked && shape.lockedBy !== currentUserId}
               lockedBy={shape.lockedBy}
+              isLayerLocked={shape.layerLocked || false}
               isInEditMode={shape.id === editModeShapeId && isColorPickerOpen}
               onSelect={() => handleShapeSelect(shape.id)}
               onDragStart={handleShapeDragStart(shape.id)}

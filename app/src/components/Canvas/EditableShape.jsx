@@ -16,6 +16,7 @@ export default function EditableShape({
   scaleY,
   isSelected,
   isLocked,
+  isLayerLocked, // Layer-level lock (prevents all editing)
   lockedBy,
   onSelect,
   onDragStart,
@@ -29,6 +30,13 @@ export default function EditableShape({
 }) {
   const handleDoubleClick = async (e) => {
     e.cancelBubble = true;
+    
+    // Check if layer is locked
+    if (isLayerLocked) {
+      console.log('⚠️ Cannot edit: Layer is locked. Unlock it in the Layers panel.');
+      alert('This layer is locked. Unlock it in the Layers panel to edit.');
+      return;
+    }
     
     // Check if locked by another user
     if (isLocked) {

@@ -310,6 +310,45 @@ export function CanvasProvider({ children }) {
     }
   };
   
+  // Reorder shapes (for drag-and-drop in layers panel)
+  const reorderShapes = async (newShapesOrder) => {
+    if (!currentUser) return;
+    
+    try {
+      await canvasService.reorderShapes(newShapesOrder);
+    } catch (error) {
+      console.error('Error reordering shapes:', error);
+    }
+  };
+  
+  // Layer visibility toggle
+  const toggleVisibility = async (id) => {
+    if (!currentUser) return;
+    
+    try {
+      const shape = shapes.find(s => s.id === id);
+      if (!shape) return;
+      
+      await canvasService.toggleShapeVisibility(id, !shape.visible);
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
+    }
+  };
+  
+  // Layer lock toggle
+  const toggleLock = async (id) => {
+    if (!currentUser) return;
+    
+    try {
+      const shape = shapes.find(s => s.id === id);
+      if (!shape) return;
+      
+      await canvasService.toggleLayerLock(id, !shape.layerLocked, currentUser.uid);
+    } catch (error) {
+      console.error('Error toggling layer lock:', error);
+    }
+  };
+  
   const value = {
     shapes,
     selectedId,
@@ -344,6 +383,10 @@ export function CanvasProvider({ children }) {
     sendShapeToBack,
     bringShapeForward,
     sendShapeBackward,
+    reorderShapes,
+    // Layer visibility & locking
+    toggleVisibility,
+    toggleLock,
     // Export selection state
     exportSelectionMode,
     setExportSelectionMode,

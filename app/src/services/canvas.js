@@ -87,6 +87,8 @@ export async function createShape(shapeData, userId) {
       lastModifiedAt: Date.now(),
       isLocked: false,
       lockedBy: null,
+      visible: true, // Default: visible
+      layerLocked: false, // Default: unlocked
     };
     
     await updateDoc(canvasRef, {
@@ -425,6 +427,72 @@ export async function sendBackward(shapeId) {
     await reorderShapes(newShapes);
   } catch (error) {
     console.error('Error sending backward:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// LAYER VISIBILITY & LOCKING
+// ============================================================================
+
+/**
+ * Toggle visibility of a shape
+ * @param {string} shapeId - Shape ID to toggle
+ * @param {boolean} visible - New visibility state
+ * @returns {Promise<void>}
+ */
+export async function toggleShapeVisibility(shapeId, visible) {
+  try {
+    const shapes = await getCurrentShapes();
+    const updatedShapes = shapes.map(shape =>
+      shape.id === shapeId
+        ? { ...shape, visible, lastModifiedAt: Date.now() }
+        : shape
+    );
+    
+    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+    await updateDoc(canvasRef, {
+      shapes: updatedShapes,
+      lastUpdated: serverTimestamp(),
+    });
+    
+    console.log(`✅ Shape ${shapeId} visibility: ${visible}`);
+  } catch (error) {
+    console.error('❌ Error toggling visibility:', error);
+    throw error;
+  }
+}
+
+/**
+ * Toggle layer lock state of a shape (prevents all editing)
+ * @param {string} shapeId - Shape ID to toggle
+ * @param {boolean} locked - New lock state
+ * @param {string} userId - User making the change
+ * @returns {Promise<void>}
+ */
+export async function toggleLayerLock(shapeId, locked, userId) {
+  try {
+    const shapes = await getCurrentShapes();
+    const updatedShapes = shapes.map(shape =>
+      shape.id === shapeId
+        ? { 
+            ...shape, 
+            layerLocked: locked,
+            layerLockedBy: locked ? userId : null,
+            lastModifiedAt: Date.now() 
+          }
+        : shape
+    );
+    
+    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+    await updateDoc(canvasRef, {
+      shapes: updatedShapes,
+      lastUpdated: serverTimestamp(),
+    });
+    
+    console.log(`✅ Shape ${shapeId} layer lock: ${locked}`);
+  } catch (error) {
+    console.error('❌ Error toggling layer lock:', error);
     throw error;
   }
 }

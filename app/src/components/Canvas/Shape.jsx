@@ -24,6 +24,7 @@ export default function Shape({
   scaleY = 1,
   isSelected, 
   isLocked, 
+  isLayerLocked, // Layer-level lock (prevents all editing)
   lockedBy,
   isInEditMode, // For color editing mode with arrow key navigation
   onSelect,
@@ -109,15 +110,16 @@ export default function Shape({
     rotation,
     scaleX,
     scaleY,
-    // Purple border for edit mode, blue for selected, red for locked, gray for normal
-    stroke: isLocked ? '#FF5722' : 
+    // Amber border for layer-locked, purple for edit mode, blue for selected, red for locked, gray for normal
+    stroke: isLayerLocked ? '#F59E0B' :
+            (isLocked ? '#FF5722' : 
             (isInEditMode ? '#9333EA' : 
-            (isSelected ? '#2196F3' : '#666666')),
-    strokeWidth: isSelected ? 3 : (isLocked ? 2 : 1),
-    shadowColor: isInEditMode ? '#9333EA' : (isSelected ? '#2196F3' : 'transparent'),
-    shadowBlur: isSelected ? 10 : 0,
-    shadowOpacity: isSelected ? 0.5 : 0,
-    draggable: !isLocked,
+            (isSelected ? '#2196F3' : '#666666'))),
+    strokeWidth: isSelected ? 3 : (isLocked || isLayerLocked ? 2 : 1),
+    shadowColor: isLayerLocked ? '#F59E0B' : (isInEditMode ? '#9333EA' : (isSelected ? '#2196F3' : 'transparent')),
+    shadowBlur: isSelected || isLayerLocked ? 10 : 0,
+    shadowOpacity: isSelected || isLayerLocked ? 0.5 : 0,
+    draggable: !isLocked && !isLayerLocked, // Disable dragging for both locks
     onClick: onSelect,
     onTap: onSelect,
     onDragStart,
@@ -125,7 +127,7 @@ export default function Shape({
     onDragEnd,
     onTransformStart,
     onTransformEnd,
-    opacity: isLocked ? 0.7 : 1,
+    opacity: (isLocked || isLayerLocked) ? 0.7 : 1,
   };
   
   // Render shape based on type
@@ -148,6 +150,7 @@ export default function Shape({
             scaleY={scaleY}
             isSelected={isSelected}
             isLocked={isLocked}
+            isLayerLocked={isLayerLocked}
             lockedBy={lockedBy}
             onSelect={onSelect}
             onDragStart={onDragStart}
@@ -180,6 +183,7 @@ export default function Shape({
             scaleY={scaleY}
             isSelected={isSelected}
             isLocked={isLocked}
+            isLayerLocked={isLayerLocked}
             lockedBy={lockedBy}
             onSelect={onSelect}
             onDragStart={onDragStart}
@@ -229,7 +233,7 @@ export default function Shape({
       {renderShape()}
       
       {/* Transformer for selected shapes - Enables rotation and resize */}
-      {isSelected && !isLocked && (
+      {isSelected && !isLocked && !isLayerLocked && (
         <Transformer
           ref={trRef}
           enabledAnchors={[
