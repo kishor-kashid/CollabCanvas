@@ -280,6 +280,81 @@ export function CanvasProvider({ children }) {
     }
   };
   
+  // Add shapes optimistically (local state only, for instant UI)
+  const addShapesOptimistic = (shapesData) => {
+    if (!currentUser) return;
+    
+    // Add shapes to local state immediately without waiting for Firestore
+    setShapes(prevShapes => [...prevShapes, ...shapesData]);
+  };
+  
+  // Add multiple shapes in batch (syncs to Firestore)
+  const addShapesBatch = async (shapesData) => {
+    if (!currentUser) return [];
+    
+    try {
+      const shapeIds = await canvasService.createShapesBatch(shapesData, currentUser.uid);
+      return shapeIds;
+    } catch (error) {
+      console.error('Error adding shapes batch:', error);
+      return [];
+    }
+  };
+  
+  // Delete shapes optimistically (local state only, for instant UI)
+  const deleteShapesOptimistic = (shapeIds) => {
+    if (!currentUser) return;
+    
+    // Remove shapes from local state immediately
+    setShapes(prevShapes => prevShapes.filter(s => !shapeIds.includes(s.id)));
+    
+    // Clear selection if deleted
+    if (shapeIds.includes(selectedId)) {
+      setSelectedId(null);
+    }
+  };
+  
+  // Delete multiple shapes in batch (syncs to Firestore)
+  const deleteShapesBatch = async (shapeIds) => {
+    if (!currentUser) return 0;
+    
+    try {
+      const deletedCount = await canvasService.deleteShapesBatch(shapeIds);
+      return deletedCount;
+    } catch (error) {
+      console.error('Error deleting shapes batch:', error);
+      return 0;
+    }
+  };
+  
+  // Update shapes optimistically (local state only, for instant UI)
+  const updateShapesOptimistic = (updates) => {
+    if (!currentUser) return;
+    
+    const updatesMap = new Map(updates.map(u => [u.id, u.updates]));
+    
+    setShapes(prevShapes => 
+      prevShapes.map(shape => 
+        updatesMap.has(shape.id)
+          ? { ...shape, ...updatesMap.get(shape.id) }
+          : shape
+      )
+    );
+  };
+  
+  // Update multiple shapes in batch (syncs to Firestore)
+  const updateShapesBatch = async (updates) => {
+    if (!currentUser) return 0;
+    
+    try {
+      const updatedCount = await canvasService.updateShapesBatch(updates, currentUser.uid);
+      return updatedCount;
+    } catch (error) {
+      console.error('Error updating shapes batch:', error);
+      return 0;
+    }
+  };
+  
   // Select shape
   const selectShape = (id) => {
     setSelectedId(id);
@@ -416,8 +491,14 @@ export function CanvasProvider({ children }) {
     constrainPosition,
     // Shape operations
     addShape,
+    addShapesOptimistic,
+    addShapesBatch,
     updateShape,
+    updateShapesOptimistic,
+    updateShapesBatch,
     deleteShape,
+    deleteShapesOptimistic,
+    deleteShapesBatch,
     selectShape,
     deselectAll,
     lockShape,

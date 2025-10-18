@@ -246,8 +246,9 @@ export default function AIAssistant({ isOpen, onClose, onSendMessage, onClearHis
         
         {/* Helper text */}
         <p className="text-xs text-gray-500 mt-2">
-          Press <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-xs">Enter</kbd> to send, 
-          <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-xs ml-1">Shift+Enter</kbd> for new line
+          💡 Try: <span className="text-blue-600 font-medium cursor-pointer hover:text-blue-700" onClick={() => onSendMessage("What can you do?")}>
+            "What can you do?"
+          </span> to see all capabilities
         </p>
       </form>
     </div>

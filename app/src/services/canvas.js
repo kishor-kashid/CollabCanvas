@@ -102,6 +102,43 @@ export async function createShape(shapeData, userId) {
 }
 
 /**
+ * Create multiple shapes in a single batch operation (optimized for bulk creation)
+ * @param {Array} shapesData - Array of shape objects to create
+ * @param {string} userId - ID of user creating the shapes
+ * @returns {Promise<Array>} Array of created shape IDs
+ */
+export async function createShapesBatch(shapesData, userId) {
+  try {
+    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+    const currentShapes = await getCurrentShapes();
+    
+    const timestamp = Date.now();
+    const newShapes = shapesData.map(shapeData => ({
+      ...shapeData,
+      createdBy: userId,
+      createdAt: timestamp,
+      lastModifiedBy: userId,
+      lastModifiedAt: timestamp,
+      isLocked: false,
+      lockedBy: null,
+      visible: true,
+      layerLocked: false,
+    }));
+    
+    // Single write operation for all shapes
+    await updateDoc(canvasRef, {
+      shapes: [...currentShapes, ...newShapes],
+      lastUpdated: serverTimestamp(),
+    });
+    
+    return newShapes.map(s => s.id);
+  } catch (error) {
+    console.error('Error creating shapes batch:', error);
+    throw error;
+  }
+}
+
+/**
  * Update an existing shape
  * @param {string} shapeId - Shape ID to update
  * @param {object} updates - Properties to update
@@ -136,6 +173,48 @@ export async function updateShape(shapeId, updates, userId) {
 }
 
 /**
+ * Update multiple shapes in a single batch operation (optimized for bulk updates)
+ * @param {Array} updates - Array of {id, updates} objects
+ * @param {string} userId - ID of user making updates
+ * @returns {Promise<number>} Number of shapes updated
+ */
+export async function updateShapesBatch(updates, userId) {
+  try {
+    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+    const currentShapes = await getCurrentShapes();
+    
+    const timestamp = Date.now();
+    
+    // Create a map for fast lookups
+    const updatesMap = new Map(updates.map(u => [u.id, u.updates]));
+    
+    // Apply all updates in one pass
+    const updatedShapes = currentShapes.map(shape => {
+      if (updatesMap.has(shape.id)) {
+        return {
+          ...shape,
+          ...updatesMap.get(shape.id),
+          lastModifiedBy: userId,
+          lastModifiedAt: timestamp,
+        };
+      }
+      return shape;
+    });
+    
+    // Single write operation
+    await updateDoc(canvasRef, {
+      shapes: updatedShapes,
+      lastUpdated: serverTimestamp(),
+    });
+    
+    return updatesMap.size;
+  } catch (error) {
+    console.error('Error updating shapes batch:', error);
+    throw error;
+  }
+}
+
+/**
  * Delete a shape from the canvas
  * @param {string} shapeId - Shape ID to delete
  * @returns {Promise<void>}
@@ -153,6 +232,35 @@ export async function deleteShape(shapeId) {
     });
   } catch (error) {
     console.error('Error deleting shape:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete multiple shapes in a single batch operation (optimized for bulk deletion)
+ * @param {Array<string>} shapeIds - Array of shape IDs to delete
+ * @returns {Promise<number>} Number of shapes deleted
+ */
+export async function deleteShapesBatch(shapeIds) {
+  try {
+    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+    const currentShapes = await getCurrentShapes();
+    
+    // Filter out all shapes to delete in one operation
+    const remainingShapes = currentShapes.filter(
+      shape => !shapeIds.includes(shape.id)
+    );
+    
+    // Single write operation
+    await updateDoc(canvasRef, {
+      shapes: remainingShapes,
+      lastUpdated: serverTimestamp(),
+    });
+    
+    // Return count of deleted shapes
+    return currentShapes.length - remainingShapes.length;
+  } catch (error) {
+    console.error('Error deleting shapes batch:', error);
     throw error;
   }
 }

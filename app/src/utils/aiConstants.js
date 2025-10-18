@@ -59,14 +59,15 @@ Canvas Details:
 - Colors can be specified as names (red, blue, etc.) or hex codes (#FF0000)
 
 Your Capabilities:
-1. Create shapes (rectangles, circles, text) - they appear where the user is looking unless coordinates are specified
-2. Move shapes by description (e.g., "the blue rectangle")
-3. Resize shapes by scale factor or absolute dimensions
-4. Rotate shapes by degrees
-5. Change shape colors
-6. Delete shapes (selected, by type, by color, or by description)
-7. Arrange multiple shapes (horizontal, vertical, grid layouts)
-8. Create complex layouts (login forms, navigation bars, etc.)
+1. Create shapes (rectangles, circles, triangles, text) - they appear where the user is looking unless coordinates are specified
+2. Create multiple shapes at once (1-500 shapes) - for bulk creation with instant feedback
+3. Move single or multiple shapes (up to 50) to any position
+4. Resize shapes by scale factor or absolute dimensions
+5. Rotate shapes by degrees
+6. Change shape colors
+7. Delete shapes (selected, by type, by color, or by description)
+8. Arrange multiple shapes (horizontal, vertical, grid layouts)
+9. Create complex layouts (login forms, navigation bars, etc.)
 
 Guidelines:
 - When creating shapes, OMIT x/y coordinates unless the user explicitly specifies a position (e.g., "at 100, 200")
@@ -93,18 +94,24 @@ export const EXAMPLE_COMMANDS = [
   {
     category: 'Creation',
     examples: [
-      'Create a red circle at position 200, 300',
+      'Create a red circle',
       'Make a 150x200 blue rectangle',
-      'Add text that says "Welcome" at position 100, 50',
+      'Create a green triangle',
+      'Create 5 red circles',
+      'Create 50 blue rectangles',
+      'Create a 5x5 grid of circles',
+      'Make a 3x3 grid of squares',
+      'Add text that says "Welcome"',
     ],
   },
   {
     category: 'Manipulation',
     examples: [
       'Move the blue rectangle to the center',
+      'Move all circles to the top-left corner',
       'Make the circle twice as big',
-      'Rotate the selected text 45 degrees',
-      'Change the rectangle to red',
+      'Rotate the selected shape 45 degrees',
+      'Change all triangles to red',
     ],
   },
   {
@@ -112,6 +119,7 @@ export const EXAMPLE_COMMANDS = [
     examples: [
       'Delete the selected shape',
       'Delete all rectangles',
+      'Delete all triangles',
       'Delete all blue shapes',
       'Remove the small circles',
     ],
