@@ -20,6 +20,8 @@ export default function TopToolbar() {
     redo,
     canUndo,
     canRedo,
+    duplicateShape,
+    selectedId,
   } = useContext(CanvasContext);
 
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
@@ -160,6 +162,25 @@ export default function TopToolbar() {
                   />
                 </div>
                 <span className="text-xs text-gray-600 group-hover:text-pink-600 mt-0.5">Color</span>
+              </button>
+            </div>
+            
+            {/* Duplicate Button */}
+            <div className="ml-2">
+              <button
+                onClick={() => duplicateShape(selectedId)}
+                disabled={!selectedId}
+                className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-all duration-150 active:scale-95 group ${
+                  selectedId
+                    ? 'hover:bg-amber-50'
+                    : 'cursor-not-allowed'
+                }`}
+                title="Duplicate Selected Shape (Ctrl/Cmd+D)"
+              >
+                <svg className={`w-6 h-6 ${selectedId ? 'text-gray-700 group-hover:text-amber-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span className={`text-xs mt-0.5 ${selectedId ? 'text-gray-600 group-hover:text-amber-600' : 'text-gray-400'}`}>Duplicate</span>
               </button>
             </div>
             </div>

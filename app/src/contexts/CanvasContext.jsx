@@ -58,6 +58,9 @@ export function CanvasProvider({ children }) {
   const isUndoingRef = useRef(false); // Flag to prevent recording during undo/redo
   const aiOperationBatchRef = useRef(null); // Collect AI actions into a batch
   
+  // Clipboard for copy/paste
+  const [clipboard, setClipboard] = useState(null);
+  
   // Clean up stale sessions on mount
   useEffect(() => {
     cleanupStaleSessions(2 * 60 * 1000); // Clean up sessions older than 2 minutes
@@ -786,6 +789,169 @@ export function CanvasProvider({ children }) {
   
   // ============= END UNDO/REDO SYSTEM =============
   
+  // ============= COPY/PASTE SYSTEM =============
+  
+  /**
+   * Copy selected shape to clipboard
+   * @param {string} id - Shape ID to copy
+   * @returns {boolean} Success status
+   */
+  const copyShape = (id) => {
+    if (!id) {
+      console.warn('No shape selected to copy');
+      return false;
+    }
+    
+    const shape = shapes.find(s => s.id === id);
+    if (!shape) {
+      console.warn('Shape not found');
+      return false;
+    }
+    
+    // Store complete shape data (excluding metadata)
+    const shapeToCopy = {
+      type: shape.type,
+      x: shape.x,
+      y: shape.y,
+      rotation: shape.rotation || 0,
+      scaleX: shape.scaleX || 1,
+      scaleY: shape.scaleY || 1,
+      opacity: shape.opacity || 1.0,
+      blendMode: shape.blendMode || 'source-over',
+      visible: shape.visible !== false,
+      layerLocked: false, // Don't copy lock state
+      // Type-specific properties
+      ...(shape.fill && { fill: shape.fill }),
+      ...(shape.width && { width: shape.width }),
+      ...(shape.height && { height: shape.height }),
+      ...(shape.radius && { radius: shape.radius }),
+      ...(shape.text && { text: shape.text }),
+      ...(shape.fontSize && { fontSize: shape.fontSize }),
+      ...(shape.fontFamily && { fontFamily: shape.fontFamily }),
+      ...(shape.fontStyle && { fontStyle: shape.fontStyle }),
+    };
+    
+    setClipboard(shapeToCopy);
+    console.log('✂️ Shape copied to clipboard:', shape.type);
+    return true;
+  };
+  
+  /**
+   * Paste shape from clipboard
+   * @returns {string|null} New shape ID or null
+   */
+  const pasteShape = async () => {
+    if (!clipboard) {
+      alert('Nothing to paste! Copy a shape first (Ctrl/Cmd+C)');
+      console.warn('Nothing to paste');
+      return null;
+    }
+    
+    if (!currentUser) {
+      console.warn('No user logged in');
+      return null;
+    }
+    
+    try {
+      // Create new shape with offset from original position
+      const PASTE_OFFSET = 80; // Pixels to offset
+      
+      const newShape = {
+        id: generateShapeId(),
+        ...clipboard,
+        x: clipboard.x + PASTE_OFFSET,
+        y: clipboard.y + PASTE_OFFSET,
+      };
+      
+      await canvasService.createShape(newShape, currentUser.uid);
+      setSelectedId(newShape.id); // Auto-select pasted shape
+      
+      // Record action for undo
+      recordAction({
+        type: 'create',
+        shapes: [newShape],
+        timestamp: Date.now(),
+      });
+      
+      // Update clipboard position for next paste (cascade effect)
+      setClipboard({
+        ...clipboard,
+        x: newShape.x,
+        y: newShape.y,
+      });
+      
+      console.log('📋 Shape pasted:', newShape.type);
+      return newShape.id;
+    } catch (error) {
+      console.error('Error pasting shape:', error);
+      return null;
+    }
+  };
+  
+  /**
+   * Duplicate a shape directly (without using clipboard)
+   * @param {string} shapeId - Shape ID to duplicate
+   * @returns {string|null} New shape ID or null
+   */
+  const duplicateShape = async (shapeId) => {
+    if (!shapeId || !currentUser) {
+      console.warn('No shape ID provided to duplicate or no user');
+      return null;
+    }
+    
+    const shape = shapes.find(s => s.id === shapeId);
+    if (!shape) {
+      console.warn('Shape not found for duplication');
+      return null;
+    }
+    
+    try {
+      // Create duplicate with offset from original position
+      const DUPLICATE_OFFSET = 80; // Pixels to offset
+      
+      const newShape = {
+        id: generateShapeId(),
+        type: shape.type,
+        x: shape.x + DUPLICATE_OFFSET,
+        y: shape.y + DUPLICATE_OFFSET,
+        rotation: shape.rotation || 0,
+        scaleX: shape.scaleX || 1,
+        scaleY: shape.scaleY || 1,
+        opacity: shape.opacity || 1.0,
+        blendMode: shape.blendMode || 'source-over',
+        visible: shape.visible !== false,
+        layerLocked: false, // Don't copy lock state
+        // Type-specific properties
+        ...(shape.fill && { fill: shape.fill }),
+        ...(shape.width && { width: shape.width }),
+        ...(shape.height && { height: shape.height }),
+        ...(shape.radius && { radius: shape.radius }),
+        ...(shape.text && { text: shape.text }),
+        ...(shape.fontSize && { fontSize: shape.fontSize }),
+        ...(shape.fontFamily && { fontFamily: shape.fontFamily }),
+        ...(shape.fontStyle && { fontStyle: shape.fontStyle }),
+      };
+      
+      await canvasService.createShape(newShape, currentUser.uid);
+      setSelectedId(newShape.id); // Auto-select duplicated shape
+      
+      // Record action for undo
+      recordAction({
+        type: 'create',
+        shapes: [newShape],
+        timestamp: Date.now(),
+      });
+      
+      console.log('🔄 Shape duplicated:', shape.type);
+      return newShape.id;
+    } catch (error) {
+      console.error('Error duplicating shape:', error);
+      return null;
+    }
+  };
+  
+  // ============= END COPY/PASTE SYSTEM =============
+  
   const value = {
     shapes,
     selectedId,
@@ -853,6 +1019,12 @@ export function CanvasProvider({ children }) {
     startActionBatch,
     startAIBatch,
     endAIBatch,
+    // Copy/Paste
+    clipboard,
+    copyShape,
+    pasteShape,
+    duplicateShape,
+    hasCopiedShape: clipboard !== null,
   };
   
   return (

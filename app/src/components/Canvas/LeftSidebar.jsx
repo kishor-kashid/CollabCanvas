@@ -279,7 +279,7 @@ export default function LeftSidebar() {
             {showShortcuts && (
               <div className="bg-gray-50 rounded-lg p-3 space-y-1 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Pan:</span>
+                  <span className="text-gray-600">Pan Canvas:</span>
                   <span className="font-mono bg-white px-2 py-0.5 rounded">Drag</span>
                 </div>
                 <div className="flex justify-between">
@@ -291,12 +291,40 @@ export default function LeftSidebar() {
                   <span className="font-mono bg-white px-2 py-0.5 rounded">Del</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-gray-600">Copy:</span>
+                  <span className="font-mono bg-white px-2 py-0.5 rounded">⌘C</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Paste:</span>
+                  <span className="font-mono bg-white px-2 py-0.5 rounded">⌘V</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Duplicate:</span>
+                  <span className="font-mono bg-white px-2 py-0.5 rounded">⌘D</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Undo:</span>
+                  <span className="font-mono bg-white px-2 py-0.5 rounded">⌘Z</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Redo:</span>
+                  <span className="font-mono bg-white px-2 py-0.5 rounded">⌘⇧Z</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-600">To Front:</span>
                   <span className="font-mono bg-white px-2 py-0.5 rounded">⌘]</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">To Back:</span>
                   <span className="font-mono bg-white px-2 py-0.5 rounded">⌘[</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Forward:</span>
+                  <span className="font-mono bg-white px-2 py-0.5 rounded">⌘⇧]</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Backward:</span>
+                  <span className="font-mono bg-white px-2 py-0.5 rounded">⌘⇧[</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">AI Chat:</span>

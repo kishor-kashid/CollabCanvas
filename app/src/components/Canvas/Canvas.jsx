@@ -67,6 +67,9 @@ export default function Canvas() {
     recordAction,
     startAIBatch,
     endAIBatch,
+    copyShape,
+    pasteShape,
+    duplicateShape,
   } = useContext(CanvasContext);
   
   // Cursor tracking
@@ -178,6 +181,27 @@ export default function Canvas() {
         }
       }
       
+      // Copy: Cmd/Ctrl + C
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedId && !isAIChatOpen) {
+        e.preventDefault();
+        copyShape(selectedId);
+        return;
+      }
+      
+      // Paste: Cmd/Ctrl + V
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !isAIChatOpen) {
+        e.preventDefault();
+        pasteShape();
+        return;
+      }
+      
+      // Duplicate: Cmd/Ctrl + D
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd' && selectedId && !isAIChatOpen) {
+        e.preventDefault();
+        duplicateShape(selectedId);
+        return;
+      }
+      
       // Undo: Cmd/Ctrl + Z
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
@@ -192,8 +216,8 @@ export default function Canvas() {
         return;
       }
       
-      // Delete or Backspace key
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+      // Delete key only (not Backspace)
+      if (e.key === 'Delete' && selectedId) {
         e.preventDefault();
         const selectedShape = shapes.find(s => s.id === selectedId);
         // Only delete if not locked
@@ -234,7 +258,7 @@ export default function Canvas() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll, isAIChatOpen, bringShapeToFront, sendShapeToBack, bringShapeForward, sendShapeBackward, undo, redo]);
+  }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll, isAIChatOpen, bringShapeToFront, sendShapeToBack, bringShapeForward, sendShapeBackward, undo, redo, copyShape, pasteShape, duplicateShape]);
   
   // Handle clicking on stage background to deselect
   const handleStageClick = (e) => {
