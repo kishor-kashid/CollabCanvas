@@ -710,8 +710,6 @@ async function executeCreateMultipleShapes(params, context) {
       // Split into chunks and process with progress
       const chunks = chunkArray(allShapesData, CHUNK_SIZE);
       
-      console.log(`📦 Creating ${count} shapes in ${chunks.length} batches...`);
-      
       // Process chunks in background
       setTimeout(async () => {
         for (let i = 0; i < chunks.length; i++) {
@@ -722,8 +720,6 @@ async function executeCreateMultipleShapes(params, context) {
             const batchIds = await context.addShapesBatch(chunk);
             createdIds.push(...batchIds);
             
-            console.log(`✅ Batch ${batchNum}/${chunks.length}: ${batchIds.length} shapes synced`);
-            
             // Small delay between batches
             if (i < chunks.length - 1) {
               await delay(100);
@@ -732,15 +728,12 @@ async function executeCreateMultipleShapes(params, context) {
             console.error(`❌ Batch ${batchNum} failed:`, error);
           }
         }
-        
-        console.log(`🎉 Sync complete: ${createdIds.length}/${count} shapes`);
       }, 0);
     } else {
       // For ≤100 shapes, single batch in background
       setTimeout(async () => {
         try {
           createdIds = await context.addShapesBatch(allShapesData);
-          console.log(`✅ Created ${createdIds.length} shapes`);
         } catch (error) {
           console.error('Failed to sync shapes:', error);
         }
@@ -886,16 +879,13 @@ async function executeCreateGrid(params, context) {
     if (useChunking) {
       const chunks = chunkArray(allShapesData, CHUNK_SIZE);
       
-      console.log(`📦 Creating ${rows}x${columns} grid (${totalShapes} shapes) in ${chunks.length} batches...`);
-      
       setTimeout(async () => {
         for (let i = 0; i < chunks.length; i++) {
           const chunk = chunks[i];
           const batchNum = i + 1;
           
           try {
-            const batchIds = await context.addShapesBatch(chunk);
-            console.log(`✅ Batch ${batchNum}/${chunks.length}: ${batchIds.length} shapes synced`);
+            await context.addShapesBatch(chunk);
             
             if (i < chunks.length - 1) {
               await delay(100);
@@ -904,14 +894,11 @@ async function executeCreateGrid(params, context) {
             console.error(`❌ Batch ${batchNum} failed:`, error);
           }
         }
-        
-        console.log(`🎉 Grid complete: ${totalShapes} shapes in ${rows}x${columns} layout`);
       }, 0);
     } else {
       setTimeout(async () => {
         try {
-          const createdIds = await context.addShapesBatch(allShapesData);
-          console.log(`✅ Created ${rows}x${columns} grid with ${createdIds.length} shapes`);
+          await context.addShapesBatch(allShapesData);
         } catch (error) {
           console.error('Failed to create grid:', error);
         }
@@ -1052,8 +1039,7 @@ async function executeMoveMultipleShapes(params, context) {
     // Step 2: Background sync - Single batch update
     setTimeout(async () => {
       try {
-        const updatedCount = await context.updateShapesBatch(updates);
-        console.log(`✅ Moved ${updatedCount} shapes`);
+        await context.updateShapesBatch(updates);
       } catch (error) {
         console.error('Failed to move shapes:', error);
       }
@@ -1335,8 +1321,7 @@ async function executeDeleteShapes(params, context) {
     // Step 2: Background sync - Single batch delete
     setTimeout(async () => {
       try {
-        const deletedCount = await context.deleteShapesBatch(shapeIdsToDelete);
-        console.log(`✅ Deleted ${deletedCount} shapes`);
+        await context.deleteShapesBatch(shapeIdsToDelete);
       } catch (error) {
         console.error('Failed to delete shapes:', error);
       }
@@ -1449,8 +1434,7 @@ async function executeArrangeShapes(params, context) {
     // Step 2: Background sync - Single batch update
     setTimeout(async () => {
       try {
-        const updatedCount = await context.updateShapesBatch(updates);
-        console.log(`✅ Arranged ${updatedCount} shapes in ${layout} layout`);
+        await context.updateShapesBatch(updates);
       } catch (error) {
         console.error('Failed to arrange shapes:', error);
       }

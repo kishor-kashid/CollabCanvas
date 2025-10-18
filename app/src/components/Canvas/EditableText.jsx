@@ -2,6 +2,7 @@
 
 import { Text } from 'react-konva';
 import { useState, forwardRef } from 'react';
+import { checkEditPermissions, checkLockAcquisition } from '../../utils/editPermissions';
 
 const EditableText = forwardRef(function EditableText({
   id,
@@ -38,17 +39,10 @@ const EditableText = forwardRef(function EditableText({
     // Prevent this from triggering selection
     e.cancelBubble = true;
     
-    // Check if layer is locked
-    if (isLayerLocked) {
-      console.log('⚠️ Cannot edit: Layer is locked. Unlock it in the Layers panel.');
-      alert('This layer is locked. Unlock it in the Layers panel to edit.');
-      return;
-    }
-    
-    // Check if locked by another user
-    if (isLocked) {
-      console.log('⚠️ Cannot edit: Text is being edited by another user');
-      alert('This text is currently being edited by another user. Please wait until they finish.');
+    // Check edit permissions
+    const permCheck = checkEditPermissions(isLayerLocked, isLocked);
+    if (!permCheck.canEdit) {
+      alert(permCheck.message);
       return;
     }
     
@@ -65,9 +59,9 @@ const EditableText = forwardRef(function EditableText({
     // Acquire lock before editing
     if (onLock) {
       const lockAcquired = await onLock();
-      if (!lockAcquired) {
-        console.log('⚠️ Failed to acquire lock for text editing');
-        alert('Unable to edit this text right now. Please try again.');
+      const lockCheck = checkLockAcquisition(lockAcquired, 'text');
+      if (!lockCheck.success) {
+        alert(lockCheck.message);
         return;
       }
     }
@@ -78,7 +72,6 @@ const EditableText = forwardRef(function EditableText({
     // Set up lock refresh interval to keep lock alive during long editing sessions
     const lockRefreshInterval = setInterval(async () => {
       if (onLock) {
-        console.log('🔄 Refreshing text editing lock...');
         await onLock(); // Re-acquire lock to refresh timestamp
       }
     }, 3000); // Refresh every 3 seconds (before 5-second timeout)

@@ -96,8 +96,6 @@ export default function LeftSidebar() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
-        console.log('✅ Full canvas exported successfully');
       } catch (error) {
         console.error('❌ Export failed:', error);
         alert('Failed to export canvas. Try using selection export instead.');

@@ -563,8 +563,6 @@ export async function toggleShapeVisibility(shapeId, visible) {
       shapes: updatedShapes,
       lastUpdated: serverTimestamp(),
     });
-    
-    console.log(`✅ Shape ${shapeId} visibility: ${visible}`);
   } catch (error) {
     console.error('❌ Error toggling visibility:', error);
     throw error;
@@ -597,8 +595,6 @@ export async function toggleLayerLock(shapeId, locked, userId) {
       shapes: updatedShapes,
       lastUpdated: serverTimestamp(),
     });
-    
-    console.log(`✅ Shape ${shapeId} layer lock: ${locked}`);
   } catch (error) {
     console.error('❌ Error toggling layer lock:', error);
     throw error;

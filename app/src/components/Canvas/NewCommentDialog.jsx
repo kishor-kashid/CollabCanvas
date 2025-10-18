@@ -33,7 +33,7 @@ export default function NewCommentDialog({
       
       onSuccess?.(commentId);
       onClose();
-    } catch (error) {
+    } catch {
       alert('Failed to create comment');
       setIsSubmitting(false);
     }

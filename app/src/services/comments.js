@@ -12,9 +12,9 @@ import {
   orderBy, 
   onSnapshot 
 } from 'firebase/firestore';
+import { CANVAS_ID } from '../utils/constants';
 
 const COMMENTS_COLLECTION = 'comments';
-const CANVAS_ID = 'canvas_default';
 
 /**
  * Create a new comment
@@ -38,7 +38,6 @@ export async function createComment(commentData, user) {
     };
     
     const docRef = await addDoc(collection(db, COMMENTS_COLLECTION), newComment);
-    console.log('✅ Comment created:', docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('❌ Error creating comment:', error);
@@ -58,7 +57,6 @@ export async function updateComment(commentId, updates) {
       ...updates,
       updatedAt: Date.now(),
     });
-    console.log('✅ Comment updated:', commentId);
   } catch (error) {
     console.error('❌ Error updating comment:', error);
     throw error;
@@ -80,7 +78,6 @@ export async function toggleResolveComment(commentId, isResolved, userId) {
       resolvedAt: isResolved ? Date.now() : null,
       updatedAt: Date.now(),
     });
-    console.log(`✅ Comment ${isResolved ? 'resolved' : 'unresolved'}:`, commentId);
   } catch (error) {
     console.error('❌ Error toggling comment resolution:', error);
     throw error;
@@ -94,7 +91,6 @@ export async function toggleResolveComment(commentId, isResolved, userId) {
 export async function deleteComment(commentId) {
   try {
     await deleteDoc(doc(db, COMMENTS_COLLECTION, commentId));
-    console.log('✅ Comment deleted:', commentId);
   } catch (error) {
     console.error('❌ Error deleting comment:', error);
     throw error;

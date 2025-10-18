@@ -7,6 +7,7 @@ import {
   deleteComment, 
   toggleResolveComment 
 } from '../../services/comments';
+import { formatRelativeTime } from '../../utils/dateFormatting';
 
 /**
  * Comment thread panel component
@@ -40,7 +41,7 @@ export default function CommentThread({
       }, currentUser);
       
       setReplyText('');
-    } catch (error) {
+    } catch {
       alert('Failed to post reply');
     } finally {
       setIsSubmitting(false);
@@ -54,7 +55,7 @@ export default function CommentThread({
         !mainComment.isResolved, 
         currentUser.uid
       );
-    } catch (error) {
+    } catch {
       alert('Failed to toggle resolution');
     }
   };
@@ -69,7 +70,7 @@ export default function CommentThread({
       if (commentId === mainComment.id) {
         onClose();
       }
-    } catch (error) {
+    } catch {
       alert('Failed to delete comment');
     }
   };
@@ -183,21 +184,6 @@ export default function CommentThread({
 function CommentItem({ comment, isMain, onDelete, currentUserId }) {
   const isAuthor = comment.authorId === currentUserId;
   
-  const formatDate = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
-  
   return (
     <div className={`${isMain ? '' : 'ml-8'}`}>
       <div className="flex items-start space-x-2">
@@ -212,7 +198,7 @@ function CommentItem({ comment, isMain, onDelete, currentUserId }) {
             <div className="flex items-center space-x-2">
               <span className="font-medium text-sm text-gray-900">{comment.authorName}</span>
               <span className="text-xs text-gray-500">
-                {formatDate(comment.createdAt)}
+                {formatRelativeTime(comment.createdAt)}
               </span>
             </div>
             

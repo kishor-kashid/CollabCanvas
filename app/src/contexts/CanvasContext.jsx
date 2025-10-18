@@ -586,14 +586,11 @@ export function CanvasProvider({ children }) {
     // If we're in AI batch mode, collect actions instead of recording immediately
     if (aiOperationBatchRef.current) {
       aiOperationBatchRef.current.push(action);
-      console.log('📝 Action collected for AI batch:', action.type);
       return;
     }
     
     setUndoStack(prev => [...prev, action]);
     setRedoStack([]); // Clear redo stack on new action
-    
-    console.log('📝 Action recorded:', action.type, action);
   };
   
   /**
@@ -601,7 +598,6 @@ export function CanvasProvider({ children }) {
    */
   const startAIBatch = () => {
     aiOperationBatchRef.current = [];
-    console.log('🤖 Started AI batch collection');
   };
   
   /**
@@ -623,8 +619,6 @@ export function CanvasProvider({ children }) {
       timestamp: Date.now(),
     }]);
     setRedoStack([]); // Clear redo stack
-    
-    console.log(`🤖 AI batch recorded with ${collectedActions.length} actions`);
   };
   
   /**
@@ -655,7 +649,6 @@ export function CanvasProvider({ children }) {
    */
   const undo = async () => {
     if (undoStack.length === 0 || !currentUser) {
-      console.log('⚠️ Nothing to undo');
       return;
     }
     
@@ -665,8 +658,6 @@ export function CanvasProvider({ children }) {
     isUndoingRef.current = true;
     
     try {
-      console.log('↩️ Undoing action:', action.type);
-      
       if (action.type === 'batch') {
         // Undo batch in reverse order
         for (let i = action.actions.length - 1; i >= 0; i--) {
@@ -678,8 +669,6 @@ export function CanvasProvider({ children }) {
       
       // Add to redo stack
       setRedoStack(prev => [...prev, action]);
-      
-      console.log('✅ Undo successful');
     } catch (error) {
       console.error('❌ Error during undo:', error);
       // Restore action to undo stack on error
@@ -694,7 +683,6 @@ export function CanvasProvider({ children }) {
    */
   const redo = async () => {
     if (redoStack.length === 0 || !currentUser) {
-      console.log('⚠️ Nothing to redo');
       return;
     }
     
@@ -704,8 +692,6 @@ export function CanvasProvider({ children }) {
     isUndoingRef.current = true;
     
     try {
-      console.log('↪️ Redoing action:', action.type);
-      
       if (action.type === 'batch') {
         // Redo batch in forward order
         for (const singleAction of action.actions) {
@@ -717,8 +703,6 @@ export function CanvasProvider({ children }) {
       
       // Add back to undo stack
       setUndoStack(prev => [...prev, action]);
-      
-      console.log('✅ Redo successful');
     } catch (error) {
       console.error('❌ Error during redo:', error);
       // Restore action to redo stack on error
@@ -801,13 +785,11 @@ export function CanvasProvider({ children }) {
    */
   const copyShape = (id) => {
     if (!id) {
-      console.warn('No shape selected to copy');
       return false;
     }
     
     const shape = shapes.find(s => s.id === id);
     if (!shape) {
-      console.warn('Shape not found');
       return false;
     }
     
@@ -835,7 +817,7 @@ export function CanvasProvider({ children }) {
     };
     
     setClipboard(shapeToCopy);
-    console.log('✂️ Shape copied to clipboard:', shape.type);
+    
     return true;
   };
   
@@ -846,12 +828,10 @@ export function CanvasProvider({ children }) {
   const pasteShape = async () => {
     if (!clipboard) {
       alert('Nothing to paste! Copy a shape first (Ctrl/Cmd+C)');
-      console.warn('Nothing to paste');
       return null;
     }
     
     if (!currentUser) {
-      console.warn('No user logged in');
       return null;
     }
     
@@ -883,7 +863,6 @@ export function CanvasProvider({ children }) {
         y: newShape.y,
       });
       
-      console.log('📋 Shape pasted:', newShape.type);
       return newShape.id;
     } catch (error) {
       console.error('Error pasting shape:', error);
@@ -898,13 +877,11 @@ export function CanvasProvider({ children }) {
    */
   const duplicateShape = async (shapeId) => {
     if (!shapeId || !currentUser) {
-      console.warn('No shape ID provided to duplicate or no user');
       return null;
     }
     
     const shape = shapes.find(s => s.id === shapeId);
     if (!shape) {
-      console.warn('Shape not found for duplication');
       return null;
     }
     
@@ -945,7 +922,6 @@ export function CanvasProvider({ children }) {
         timestamp: Date.now(),
       });
       
-      console.log('🔄 Shape duplicated:', shape.type);
       return newShape.id;
     } catch (error) {
       console.error('Error duplicating shape:', error);

@@ -325,7 +325,6 @@ export default function Canvas() {
     // Check if shape is layer-locked
     const shape = shapes.find(s => s.id === id);
     if (shape?.layerLocked) {
-      console.log('⚠️ This layer is locked. Unlock it in the Layers panel to edit.');
       return;
     }
     selectShape(id);
@@ -333,10 +332,7 @@ export default function Canvas() {
   
   // Handle shape drag start - acquire lock
   const handleShapeDragStart = (id) => async () => {
-    const success = await lockShape(id);
-    if (!success) {
-      console.warn('Could not acquire lock on shape');
-    }
+    await lockShape(id);
   };
   
   // Handle shape drag end - update position and release lock
@@ -351,10 +347,7 @@ export default function Canvas() {
   
   // Handle shape transform start - acquire lock
   const handleShapeTransformStart = (id) => async () => {
-    const success = await lockShape(id);
-    if (!success) {
-      console.warn('Could not acquire lock on shape');
-    }
+    await lockShape(id);
   };
   
   // Handle text change for text shapes
@@ -365,9 +358,6 @@ export default function Canvas() {
   // Handle text edit start - acquire lock
   const handleTextEditLock = (id) => async () => {
     const success = await lockShape(id);
-    if (!success) {
-      console.warn('Could not acquire lock for text editing');
-    }
     return success;
   };
   
@@ -1121,9 +1111,7 @@ export default function Canvas() {
           position={newCommentDialog.position}
           shapeId={newCommentDialog.shapeId}
           onClose={() => setNewCommentDialog(null)}
-          onSuccess={() => {
-            console.log('Comment created successfully');
-          }}
+          onSuccess={() => {}}
         />
       )}
     </div>

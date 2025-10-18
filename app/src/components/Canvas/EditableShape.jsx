@@ -1,6 +1,7 @@
 // EditableShape.jsx - Wrapper for rectangles/circles/triangles with color editing on double-click
 import { Rect, Circle, Line } from 'react-konva';
 import { SHAPE_TYPES } from '../../utils/constants';
+import { checkEditPermissions, checkLockAcquisition } from '../../utils/editPermissions';
 
 export default function EditableShape({ 
   id,
@@ -31,26 +32,19 @@ export default function EditableShape({
   const handleDoubleClick = async (e) => {
     e.cancelBubble = true;
     
-    // Check if layer is locked
-    if (isLayerLocked) {
-      console.log('⚠️ Cannot edit: Layer is locked. Unlock it in the Layers panel.');
-      alert('This layer is locked. Unlock it in the Layers panel to edit.');
-      return;
-    }
-    
-    // Check if locked by another user
-    if (isLocked) {
-      console.log('⚠️ Cannot edit: Shape is being edited by another user');
-      alert('This shape is currently being edited by another user. Please wait until they finish.');
+    // Check edit permissions
+    const permCheck = checkEditPermissions(isLayerLocked, isLocked);
+    if (!permCheck.canEdit) {
+      alert(permCheck.message);
       return;
     }
     
     // Trigger color edit mode - parent will handle lock acquisition
     if (onColorEditStart) {
       const lockAcquired = await onColorEditStart();
-      if (!lockAcquired) {
-        console.log('⚠️ Failed to acquire lock for color editing');
-        alert('Unable to edit this shape right now. Please try again.');
+      const lockCheck = checkLockAcquisition(lockAcquired, 'shape');
+      if (!lockCheck.success) {
+        alert(lockCheck.message);
       }
     }
   };
