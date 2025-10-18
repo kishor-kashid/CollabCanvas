@@ -61,6 +61,9 @@ export function CanvasProvider({ children }) {
   // Clipboard for copy/paste
   const [clipboard, setClipboard] = useState(null);
   
+  // Comment mode
+  const [commentMode, setCommentMode] = useState(false);
+  
   // Clean up stale sessions on mount
   useEffect(() => {
     cleanupStaleSessions(2 * 60 * 1000); // Clean up sessions older than 2 minutes
@@ -1025,6 +1028,9 @@ export function CanvasProvider({ children }) {
     pasteShape,
     duplicateShape,
     hasCopiedShape: clipboard !== null,
+    // Comment mode
+    commentMode,
+    setCommentMode,
   };
   
   return (

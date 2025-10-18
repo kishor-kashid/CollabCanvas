@@ -3,6 +3,7 @@ import { useContext, useState, useEffect, useRef } from 'react';
 import { CanvasContext } from '../../contexts/CanvasContext';
 import { SHAPE_TYPES, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
 import ColorPicker from './ColorPicker';
+import { useComments } from '../../hooks/useComments';
 
 export default function TopToolbar() {
   const {
@@ -22,11 +23,16 @@ export default function TopToolbar() {
     canRedo,
     duplicateShape,
     selectedId,
+    commentMode,
+    setCommentMode,
   } = useContext(CanvasContext);
 
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [zoomInput, setZoomInput] = useState(Math.round(scale * 100));
   const colorButtonRef = useRef(null);
+  
+  // Get unresolved comment count
+  const { unresolvedCount } = useComments();
   
   // Update zoom input when scale changes
   useEffect(() => {
@@ -181,6 +187,31 @@ export default function TopToolbar() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
                 <span className={`text-xs mt-0.5 ${selectedId ? 'text-gray-600 group-hover:text-amber-600' : 'text-gray-400'}`}>Duplicate</span>
+              </button>
+            </div>
+            
+            {/* Comment Mode Toggle */}
+            <div className="ml-2 relative">
+              <button
+                onClick={() => setCommentMode(!commentMode)}
+                className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-all duration-150 active:scale-95 group ${
+                  commentMode
+                    ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                    : 'hover:bg-yellow-50 text-gray-700'
+                }`}
+                title="Comment Mode (C) - Click shapes or canvas to add comments"
+              >
+                <svg className={`w-6 h-6 ${commentMode ? 'text-yellow-700' : 'text-gray-700 group-hover:text-yellow-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+                <span className={`text-xs mt-0.5 ${commentMode ? 'text-yellow-700' : 'text-gray-600 group-hover:text-yellow-600'}`}>Comment</span>
+                
+                {/* Unresolved count badge */}
+                {unresolvedCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {unresolvedCount}
+                  </span>
+                )}
               </button>
             </div>
             </div>

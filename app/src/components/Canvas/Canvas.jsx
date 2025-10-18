@@ -25,6 +25,10 @@ import {
   downloadDataURL,
   getAIErrorMessage
 } from '../../utils/canvasHelpers';
+import { useComments } from '../../hooks/useComments';
+import CommentPin from './CommentPin';
+import CommentThread from './CommentThread';
+import NewCommentDialog from './NewCommentDialog';
 
 export default function Canvas() {
   const {
@@ -70,10 +74,17 @@ export default function Canvas() {
     copyShape,
     pasteShape,
     duplicateShape,
+    commentMode,
+    setCommentMode,
   } = useContext(CanvasContext);
   
   // Cursor tracking
   const { cursors, updateCursor } = useCursors();
+  
+  // Comments
+  const { comments, commentThreads, unresolvedCount } = useComments();
+  const [selectedCommentThread, setSelectedCommentThread] = useState(null);
+  const [newCommentDialog, setNewCommentDialog] = useState(null); // { position, shapeId }
   
   // Color picker state
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
@@ -260,10 +271,18 @@ export default function Canvas() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll, isAIChatOpen, bringShapeToFront, sendShapeToBack, bringShapeForward, sendShapeBackward, undo, redo, copyShape, pasteShape, duplicateShape]);
   
-  // Handle clicking on stage background to deselect
+  // Handle clicking on stage background to deselect or add comment
   const handleStageClick = (e) => {
     // Check if clicked on empty area (stage itself)
     if (e.target === e.target.getStage()) {
+      // If in comment mode, show new comment dialog
+      if (commentMode) {
+        const stage = e.target.getStage();
+        const position = stage.getRelativePointerPosition();
+        setNewCommentDialog({ position, shapeId: null });
+        return;
+      }
+      
       // If in edit mode, exit completely
       if (isColorPickerOpen && editModeShapeId) {
         handleColorEditUnlock(editModeShapeId)();
@@ -291,6 +310,18 @@ export default function Canvas() {
   
   // Handle shape selection
   const handleShapeSelect = (id) => {
+    // If in comment mode, add comment to shape
+    if (commentMode) {
+      const shape = shapes.find(s => s.id === id);
+      if (shape) {
+        setNewCommentDialog({ 
+          position: { x: shape.x, y: shape.y }, 
+          shapeId: id 
+        });
+      }
+      return;
+    }
+    
     // Check if shape is layer-locked
     const shape = shapes.find(s => s.id === id);
     if (shape?.layerLocked) {
@@ -760,6 +791,38 @@ export default function Canvas() {
               stageScale={scale}
             />
           )}
+          
+          {/* Render comment pins */}
+          {comments
+            .filter(c => !c.parentId) // Only main comments (not replies)
+            .map(comment => {
+              const thread = commentThreads[comment.threadId || comment.id];
+              let position = comment.position;
+              
+              // If comment is attached to a shape, use shape's position
+              if (comment.shapeId) {
+                const shape = shapes.find(s => s.id === comment.shapeId);
+                if (shape) {
+                  position = { x: shape.x, y: shape.y };
+                }
+              }
+              
+              if (!position) return null;
+              
+              return (
+                <CommentPin
+                  key={comment.id}
+                  x={position.x}
+                  y={position.y}
+                  commentCount={thread?.length || 1}
+                  isResolved={comment.isResolved}
+                  isSelected={selectedCommentThread && selectedCommentThread[0]?.id === comment.id}
+                  onClick={() => setSelectedCommentThread(thread)}
+                  stageScale={scale}
+                />
+              );
+            })
+          }
         </Layer>
       </Stage>
       
@@ -1041,6 +1104,28 @@ export default function Canvas() {
         messages={aiMessages}
         isLoading={isAILoading}
       />
+      
+      {/* Comment Thread Panel */}
+      {selectedCommentThread && (
+        <CommentThread
+          thread={selectedCommentThread}
+          shapeId={selectedCommentThread[0]?.shapeId}
+          position={selectedCommentThread[0]?.position}
+          onClose={() => setSelectedCommentThread(null)}
+        />
+      )}
+      
+      {/* New Comment Dialog */}
+      {newCommentDialog && (
+        <NewCommentDialog
+          position={newCommentDialog.position}
+          shapeId={newCommentDialog.shapeId}
+          onClose={() => setNewCommentDialog(null)}
+          onSuccess={() => {
+            console.log('Comment created successfully');
+          }}
+        />
+      )}
     </div>
   );
 }
