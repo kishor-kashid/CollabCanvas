@@ -61,6 +61,12 @@ export default function Canvas() {
     bringShapeForward,
     sendShapeBackward,
     gridVisible,
+    undo,
+    redo,
+    startActionBatch,
+    recordAction,
+    startAIBatch,
+    endAIBatch,
   } = useContext(CanvasContext);
   
   // Cursor tracking
@@ -172,6 +178,20 @@ export default function Canvas() {
         }
       }
       
+      // Undo: Cmd/Ctrl + Z
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      
+      // Redo: Cmd/Ctrl + Shift + Z
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        redo();
+        return;
+      }
+      
       // Delete or Backspace key
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault();
@@ -214,7 +234,7 @@ export default function Canvas() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll, isAIChatOpen, bringShapeToFront, sendShapeToBack, bringShapeForward, sendShapeBackward]);
+  }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll, isAIChatOpen, bringShapeToFront, sendShapeToBack, bringShapeForward, sendShapeBackward, undo, redo]);
   
   // Handle clicking on stage background to deselect
   const handleStageClick = (e) => {
@@ -863,12 +883,18 @@ export default function Canvas() {
                     },
                   };
                   
+                  // Start collecting AI actions as a single batch
+                  startAIBatch();
+                  
                   const toolResults = await handleFunctionCalls(
                     result.toolCalls,
                     async (toolName, params) => {
                       return await executeTool(toolName, params, canvasContext);
                     }
                   );
+                  
+                  // End AI batch and record as single undo action
+                  endAIBatch();
                   
                   // Update function call status
                   setAiMessages(prev => {

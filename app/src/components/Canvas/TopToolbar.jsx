@@ -16,6 +16,10 @@ export default function TopToolbar() {
     setScale,
     currentColor,
     setCurrentColor,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useContext(CanvasContext);
 
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
@@ -158,6 +162,49 @@ export default function TopToolbar() {
                 <span className="text-xs text-gray-600 group-hover:text-pink-600 mt-0.5">Color</span>
               </button>
             </div>
+            </div>
+          </div>
+          
+          {/* Divider */}
+          <div className="w-px self-stretch bg-gray-300" />
+          
+          {/* Undo/Redo Section */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-gray-700 uppercase tracking-wide text-center">History</span>
+            <div className="flex items-center gap-2">
+            
+            <button
+              onClick={undo}
+              disabled={!canUndo}
+              className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-all duration-150 active:scale-95 group ${
+                canUndo
+                  ? 'hover:bg-orange-50 text-gray-700'
+                  : 'cursor-not-allowed text-gray-400'
+              }`}
+              title="Undo (Ctrl/Cmd+Z)"
+            >
+              <svg className={`w-6 h-6 ${canUndo ? 'group-hover:text-orange-600' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              <span className={`text-xs mt-0.5 ${canUndo ? 'group-hover:text-orange-600' : ''}`}>Undo</span>
+            </button>
+            
+            <button
+              onClick={redo}
+              disabled={!canRedo}
+              className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-all duration-150 active:scale-95 group ${
+                canRedo
+                  ? 'hover:bg-teal-50 text-gray-700'
+                  : 'cursor-not-allowed text-gray-400'
+              }`}
+              title="Redo (Ctrl/Cmd+Shift+Z)"
+            >
+              <svg className={`w-6 h-6 ${canRedo ? 'group-hover:text-teal-600' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+              </svg>
+              <span className={`text-xs mt-0.5 ${canRedo ? 'group-hover:text-teal-600' : ''}`}>Redo</span>
+            </button>
+            
             </div>
           </div>
           

@@ -52,6 +52,12 @@ export function CanvasProvider({ children }) {
     return localStorage.getItem('collabcanvas-current-color') || '#000000';
   });
   
+  // User-specific Undo/Redo state
+  const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
+  const isUndoingRef = useRef(false); // Flag to prevent recording during undo/redo
+  const aiOperationBatchRef = useRef(null); // Collect AI actions into a batch
+  
   // Clean up stale sessions on mount
   useEffect(() => {
     cleanupStaleSessions(2 * 60 * 1000); // Clean up sessions older than 2 minutes
@@ -239,6 +245,14 @@ export function CanvasProvider({ children }) {
       
       await canvasService.createShape(newShape, currentUser.uid);
       setSelectedId(newShape.id);
+      
+      // Record action for undo
+      recordAction({
+        type: 'create',
+        shapes: [newShape],
+        timestamp: Date.now(),
+      });
+      
       return newShape.id; // Return the new shape ID
     } catch (error) {
       console.error('Error adding shape:', error);
@@ -251,7 +265,29 @@ export function CanvasProvider({ children }) {
     if (!currentUser) return;
     
     try {
-      await canvasService.updateShape(id, updates, currentUser.uid);
+      // Capture old properties before update
+      const shape = shapes.find(s => s.id === id);
+      if (shape) {
+        const oldProps = {};
+        Object.keys(updates).forEach(key => {
+          oldProps[key] = shape[key];
+        });
+        
+        await canvasService.updateShape(id, updates, currentUser.uid);
+        
+        // Record action for undo
+        recordAction({
+          type: 'update',
+          updates: [{
+            id,
+            oldProps,
+            newProps: updates,
+          }],
+          timestamp: Date.now(),
+        });
+      } else {
+        await canvasService.updateShape(id, updates, currentUser.uid);
+      }
     } catch (error) {
       console.error('Error updating shape:', error);
     }
@@ -269,11 +305,28 @@ export function CanvasProvider({ children }) {
         return false;
       }
       
-      await canvasService.deleteShape(id);
-      if (selectedId === id) {
-        setSelectedId(null);
+      // Capture shape data before deletion for undo
+      if (shape) {
+        await canvasService.deleteShape(id);
+        
+        // Record action for undo
+        recordAction({
+          type: 'delete',
+          shapes: [shape],
+          timestamp: Date.now(),
+        });
+        
+        if (selectedId === id) {
+          setSelectedId(null);
+        }
+        return true;
+      } else {
+        await canvasService.deleteShape(id);
+        if (selectedId === id) {
+          setSelectedId(null);
+        }
+        return true;
       }
-      return true;
     } catch (error) {
       console.error('Error deleting shape:', error);
       return false;
@@ -294,6 +347,16 @@ export function CanvasProvider({ children }) {
     
     try {
       const shapeIds = await canvasService.createShapesBatch(shapesData, currentUser.uid);
+      
+      // Record action for undo (as a batch of creates)
+      if (shapesData.length > 0) {
+        recordAction({
+          type: 'create',
+          shapes: shapesData,
+          timestamp: Date.now(),
+        });
+      }
+      
       return shapeIds;
     } catch (error) {
       console.error('Error adding shapes batch:', error);
@@ -319,7 +382,20 @@ export function CanvasProvider({ children }) {
     if (!currentUser) return 0;
     
     try {
+      // Capture shapes before deletion for undo
+      const shapesToDelete = shapes.filter(s => shapeIds.includes(s.id));
+      
       const deletedCount = await canvasService.deleteShapesBatch(shapeIds);
+      
+      // Record action for undo
+      if (shapesToDelete.length > 0) {
+        recordAction({
+          type: 'delete',
+          shapes: shapesToDelete,
+          timestamp: Date.now(),
+        });
+      }
+      
       return deletedCount;
     } catch (error) {
       console.error('Error deleting shapes batch:', error);
@@ -347,7 +423,30 @@ export function CanvasProvider({ children }) {
     if (!currentUser) return 0;
     
     try {
+      // Capture old properties before update
+      const updateRecords = updates.map(({ id, updates: newProps }) => {
+        const shape = shapes.find(s => s.id === id);
+        if (shape) {
+          const oldProps = {};
+          Object.keys(newProps).forEach(key => {
+            oldProps[key] = shape[key];
+          });
+          return { id, oldProps, newProps };
+        }
+        return null;
+      }).filter(Boolean);
+      
       const updatedCount = await canvasService.updateShapesBatch(updates, currentUser.uid);
+      
+      // Record action for undo
+      if (updateRecords.length > 0) {
+        recordAction({
+          type: 'update',
+          updates: updateRecords,
+          timestamp: Date.now(),
+        });
+      }
+      
       return updatedCount;
     } catch (error) {
       console.error('Error updating shapes batch:', error);
@@ -469,6 +568,224 @@ export function CanvasProvider({ children }) {
     }
   };
   
+  // ============= UNDO/REDO SYSTEM =============
+  
+  /**
+   * Record an action to the undo stack
+   * @param {Object} action - Action object with type and data
+   */
+  const recordAction = (action) => {
+    if (isUndoingRef.current) return; // Don't record during undo/redo
+    
+    // If we're in AI batch mode, collect actions instead of recording immediately
+    if (aiOperationBatchRef.current) {
+      aiOperationBatchRef.current.push(action);
+      console.log('📝 Action collected for AI batch:', action.type);
+      return;
+    }
+    
+    setUndoStack(prev => [...prev, action]);
+    setRedoStack([]); // Clear redo stack on new action
+    
+    console.log('📝 Action recorded:', action.type, action);
+  };
+  
+  /**
+   * Start collecting AI actions into a batch
+   */
+  const startAIBatch = () => {
+    aiOperationBatchRef.current = [];
+    console.log('🤖 Started AI batch collection');
+  };
+  
+  /**
+   * End AI batch and record all collected actions as a single batch
+   */
+  const endAIBatch = () => {
+    if (!aiOperationBatchRef.current || aiOperationBatchRef.current.length === 0) {
+      aiOperationBatchRef.current = null;
+      return;
+    }
+    
+    const collectedActions = aiOperationBatchRef.current;
+    aiOperationBatchRef.current = null;
+    
+    // Record as a single batch action
+    setUndoStack(prev => [...prev, {
+      type: 'batch',
+      actions: collectedActions,
+      timestamp: Date.now(),
+    }]);
+    setRedoStack([]); // Clear redo stack
+    
+    console.log(`🤖 AI batch recorded with ${collectedActions.length} actions`);
+  };
+  
+  /**
+   * Start a batch of actions (for AI operations)
+   */
+  const startActionBatch = () => {
+    if (isUndoingRef.current) return null;
+    
+    return {
+      actions: [],
+      addAction: function(action) {
+        this.actions.push(action);
+      },
+      commit: function() {
+        if (this.actions.length > 0) {
+          recordAction({
+            type: 'batch',
+            actions: this.actions,
+            timestamp: Date.now(),
+          });
+        }
+      }
+    };
+  };
+  
+  /**
+   * Undo the last action
+   */
+  const undo = async () => {
+    if (undoStack.length === 0 || !currentUser) {
+      console.log('⚠️ Nothing to undo');
+      return;
+    }
+    
+    const action = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, -1));
+    
+    isUndoingRef.current = true;
+    
+    try {
+      console.log('↩️ Undoing action:', action.type);
+      
+      if (action.type === 'batch') {
+        // Undo batch in reverse order
+        for (let i = action.actions.length - 1; i >= 0; i--) {
+          await undoSingleAction(action.actions[i]);
+        }
+      } else {
+        await undoSingleAction(action);
+      }
+      
+      // Add to redo stack
+      setRedoStack(prev => [...prev, action]);
+      
+      console.log('✅ Undo successful');
+    } catch (error) {
+      console.error('❌ Error during undo:', error);
+      // Restore action to undo stack on error
+      setUndoStack(prev => [...prev, action]);
+    } finally {
+      isUndoingRef.current = false;
+    }
+  };
+  
+  /**
+   * Redo the last undone action
+   */
+  const redo = async () => {
+    if (redoStack.length === 0 || !currentUser) {
+      console.log('⚠️ Nothing to redo');
+      return;
+    }
+    
+    const action = redoStack[redoStack.length - 1];
+    setRedoStack(prev => prev.slice(0, -1));
+    
+    isUndoingRef.current = true;
+    
+    try {
+      console.log('↪️ Redoing action:', action.type);
+      
+      if (action.type === 'batch') {
+        // Redo batch in forward order
+        for (const singleAction of action.actions) {
+          await redoSingleAction(singleAction);
+        }
+      } else {
+        await redoSingleAction(action);
+      }
+      
+      // Add back to undo stack
+      setUndoStack(prev => [...prev, action]);
+      
+      console.log('✅ Redo successful');
+    } catch (error) {
+      console.error('❌ Error during redo:', error);
+      // Restore action to redo stack on error
+      setRedoStack(prev => [...prev, action]);
+    } finally {
+      isUndoingRef.current = false;
+    }
+  };
+  
+  /**
+   * Undo a single action
+   */
+  const undoSingleAction = async (action) => {
+    switch (action.type) {
+      case 'create':
+        // Delete the created shape(s)
+        for (const shapeData of action.shapes) {
+          await canvasService.deleteShape(shapeData.id);
+        }
+        break;
+      
+      case 'delete':
+        // Recreate the deleted shape(s)
+        for (const shapeData of action.shapes) {
+          await canvasService.createShape(shapeData, currentUser.uid);
+        }
+        break;
+      
+      case 'update':
+        // Restore old properties
+        for (const update of action.updates) {
+          await canvasService.updateShape(update.id, update.oldProps, currentUser.uid);
+        }
+        break;
+      
+      default:
+        console.warn('Unknown action type:', action.type);
+    }
+  };
+  
+  /**
+   * Redo a single action
+   */
+  const redoSingleAction = async (action) => {
+    switch (action.type) {
+      case 'create':
+        // Recreate the shape(s)
+        for (const shapeData of action.shapes) {
+          await canvasService.createShape(shapeData, currentUser.uid);
+        }
+        break;
+      
+      case 'delete':
+        // Delete the shape(s) again
+        for (const shapeData of action.shapes) {
+          await canvasService.deleteShape(shapeData.id);
+        }
+        break;
+      
+      case 'update':
+        // Reapply new properties
+        for (const update of action.updates) {
+          await canvasService.updateShape(update.id, update.newProps, currentUser.uid);
+        }
+        break;
+      
+      default:
+        console.warn('Unknown action type:', action.type);
+    }
+  };
+  
+  // ============= END UNDO/REDO SYSTEM =============
+  
   const value = {
     shapes,
     selectedId,
@@ -525,6 +842,17 @@ export function CanvasProvider({ children }) {
     // Current color for new shapes
     currentColor,
     setCurrentColor,
+    // Undo/Redo
+    undo,
+    redo,
+    canUndo: undoStack.length > 0,
+    canRedo: redoStack.length > 0,
+    undoStack,
+    redoStack,
+    recordAction,
+    startActionBatch,
+    startAIBatch,
+    endAIBatch,
   };
   
   return (
