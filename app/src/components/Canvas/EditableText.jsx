@@ -264,7 +264,10 @@ const EditableText = memo(EditableTextComponent, (prevProps, nextProps) => {
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isLocked === nextProps.isLocked &&
     prevProps.isLayerLocked === nextProps.isLayerLocked &&
-    prevProps.lockedBy === nextProps.lockedBy
+    prevProps.lockedBy === nextProps.lockedBy &&
+    // Check commonProps for opacity and blendMode changes
+    prevProps.commonProps?.opacity === nextProps.commonProps?.opacity &&
+    prevProps.commonProps?.globalCompositeOperation === nextProps.commonProps?.globalCompositeOperation
   );
 });
 

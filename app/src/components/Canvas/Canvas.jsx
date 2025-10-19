@@ -1,6 +1,6 @@
 // Canvas Component - Main collaborative canvas with Konva
 
-import { useContext, useEffect, useState, useMemo } from 'react';
+import { useContext, useEffect, useState, useMemo, useRef } from 'react';
 import { Stage, Layer, Rect, Line, Text } from 'react-konva';
 import { CanvasContext } from '../../contexts/CanvasContext';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
@@ -102,6 +102,19 @@ export default function Canvas() {
   // Color picker state
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [editModeShapeId, setEditModeShapeId] = useState(null); // Track which shape is in edit mode
+  
+  // Lock heartbeat ref
+  const lockHeartbeatRef = useRef(null);
+  
+  // Cleanup heartbeat on unmount
+  useEffect(() => {
+    return () => {
+      if (lockHeartbeatRef.current) {
+        clearInterval(lockHeartbeatRef.current);
+        lockHeartbeatRef.current = null;
+      }
+    };
+  }, []);
   
   // Recent colors hook
   const { recentColors, addRecentColor, refreshRecentColors } = useRecentColors(currentUserId);
@@ -415,14 +428,25 @@ export default function Canvas() {
     await updateShape(id, { text: newText });
   };
   
-  // Handle text edit start - acquire lock
+  // Handle text edit start - acquire lock and start heartbeat
   const handleTextEditLock = (id) => async () => {
     const success = await lockShape(id);
+    if (success) {
+      // Start lock heartbeat to refresh every 3 seconds
+      lockHeartbeatRef.current = setInterval(async () => {
+        await lockShape(id); // Refresh the lock
+      }, 3000);
+    }
     return success;
   };
   
-  // Handle text edit end - release lock
+  // Handle text edit end - release lock and stop heartbeat
   const handleTextEditUnlock = (id) => async () => {
+    // Stop the heartbeat
+    if (lockHeartbeatRef.current) {
+      clearInterval(lockHeartbeatRef.current);
+      lockHeartbeatRef.current = null;
+    }
     await unlockShape(id);
   };
   
@@ -439,12 +463,23 @@ export default function Canvas() {
     if (success) {
       setIsColorPickerOpen(true);
       setEditModeShapeId(id); // Enter edit mode
+      
+      // Start lock heartbeat to refresh every 3 seconds
+      lockHeartbeatRef.current = setInterval(async () => {
+        await lockShape(id); // Refresh the lock
+      }, 3000);
     }
     return success;
   };
   
   // Handle color edit unlock (for rectangles/circles)
   const handleColorEditUnlock = (id) => async () => {
+    // Stop the heartbeat
+    if (lockHeartbeatRef.current) {
+      clearInterval(lockHeartbeatRef.current);
+      lockHeartbeatRef.current = null;
+    }
+    
     await unlockShape(id);
     setIsColorPickerOpen(false);
     setEditModeShapeId(null); // Exit edit mode
@@ -985,17 +1020,13 @@ export default function Canvas() {
                 // Build enhanced command with context
                 let enhancedCommand = task.command;
                 
-                // Add position context
-                if (task.position) {
-                  enhancedCommand += ` at position (${Math.round(task.position.x)}, ${Math.round(task.position.y)})`;
-                }
+                // Get the target shape if this task is attached to one
+                const targetShape = task.shapeId ? shapes.find(s => s.id === task.shapeId) : null;
                 
-                // Add shape context
-                if (task.shapeId) {
-                  const shape = shapes.find(s => s.id === task.shapeId);
-                  if (shape) {
-                    enhancedCommand += ` on the ${shape.fill || ''} ${shape.type}`;
-                  }
+                // If task is attached to a shape, provide explicit shape information
+                if (targetShape) {
+                  // Add shape description and ID to the command
+                  enhancedCommand = `${task.command} [Target shape ID: ${task.shapeId}, Type: ${targetShape.type}, Color: ${targetShape.fill || 'default'}]`;
                 }
                 
                 // Execute via AI
@@ -1013,7 +1044,7 @@ export default function Canvas() {
                       if (result.toolCalls) {
                         const canvasContext = {
                           shapes,
-                          selectedId,
+                          selectedId: task.shapeId || selectedId, // Use task's target shape as selected
                           currentUserId,
                           currentColor,
                           addShape,
@@ -1027,6 +1058,8 @@ export default function Canvas() {
                           deleteShapesBatch,
                           selectShape,
                           viewport: { position, scale, width: window.innerWidth, height: window.innerHeight },
+                          taskPosition: task.position, // Pass AI task pin position for "here" keyword
+                          targetShapeId: task.shapeId, // Explicitly pass the target shape ID
                         };
                         
                         await handleFunctionCalls(

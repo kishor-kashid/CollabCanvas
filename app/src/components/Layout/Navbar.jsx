@@ -2,12 +2,22 @@
 
 import { useAuth } from '../../hooks/useAuth';
 import PresenceList from '../Collaboration/PresenceList';
+import { removeUserSession } from '../../services/cursors';
 
 export default function Navbar({ canvasId }) {
   const { currentUser, logout } = useAuth();
   
   const handleLogout = async () => {
     try {
+      // Manually remove user presence/cursor BEFORE logout
+      // This ensures cleanup happens while user still has auth permissions
+      if (currentUser && canvasId) {
+        await removeUserSession(canvasId, currentUser.uid);
+      }
+      
+      // Small delay to ensure Firebase processes the removal
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       await logout();
     } catch (error) {
       console.error('Logout failed:', error);

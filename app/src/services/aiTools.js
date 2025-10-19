@@ -68,11 +68,11 @@ export function getToolSchemas() {
             },
             x: {
               type: 'number',
-              description: 'X coordinate position on the canvas. Optional - if omitted, the shape will be created at the center of the user\'s current viewport (where they\'re looking).',
+              description: 'X coordinate position on the canvas. Optional - if omitted, uses: 1) AI task pin position (if from task) 2) viewport center (if from chat) 3) default. OMIT when user says "here".',
             },
             y: {
               type: 'number',
-              description: 'Y coordinate position on the canvas. Optional - if omitted, the shape will be created at the center of the user\'s current viewport (where they\'re looking).',
+              description: 'Y coordinate position on the canvas. Optional - if omitted, uses: 1) AI task pin position (if from task) 2) viewport center (if from chat) 3) default. OMIT when user says "here".',
             },
             width: {
               type: 'number',
@@ -355,7 +355,7 @@ export function getToolSchemas() {
       type: 'function',
       function: {
         name: 'deleteShapes',
-        description: 'Delete one or multiple shapes from the canvas. Can delete by ID, by description (e.g., "all blue rectangles"), by type (all rectangles), or by color (all blue shapes).',
+        description: 'Delete one or multiple shapes from the canvas. Can delete by ID, by description (e.g., "all blue rectangles"), by type (all rectangles), by color (all blue shapes), or by BOTH type AND color together.',
         parameters: {
           type: 'object',
           properties: {
@@ -370,16 +370,16 @@ export function getToolSchemas() {
             },
             byType: {
               type: 'string',
-              enum: ['rectangle', 'circle', 'text'],
-              description: 'Delete all shapes of this type (e.g., all rectangles).',
+              enum: ['rectangle', 'circle', 'triangle', 'text'],
+              description: 'Delete all shapes of this type. Can be combined with byColor to delete only shapes matching BOTH criteria (e.g., byType="circle" + byColor="red" deletes only red circles).',
             },
             byColor: {
               type: 'string',
-              description: 'Delete all shapes with this color (hex code or color name like "blue", "red").',
+              description: 'Delete all shapes with this color (hex code or color name like "blue", "red"). Can be combined with byType to delete only shapes matching BOTH criteria (e.g., byType="circle" + byColor="red" deletes only red circles).',
             },
             description: {
               type: 'string',
-              description: 'Natural language description of shapes to delete (e.g., "blue rectangles", "small circles"). Will find and delete all matching shapes.',
+              description: 'Natural language description of shapes to delete (e.g., "blue rectangles", "small circles"). Will find and delete all matching shapes. Use this for complex queries.',
             },
           },
         },
@@ -505,11 +505,11 @@ export function getToolSchemas() {
             },
             startX: {
               type: 'number',
-              description: 'Starting X position. Default 200.',
+              description: 'Starting X position. OMIT when user says "here" (uses: 1) AI task pin 2) viewport center 3) default). Only provide for explicit coordinates like "at 500, 300".',
             },
             startY: {
               type: 'number',
-              description: 'Starting Y position. Default 200.',
+              description: 'Starting Y position. OMIT when user says "here" (uses: 1) AI task pin 2) viewport center 3) default). Only provide for explicit coordinates like "at 500, 300".',
             },
           },
           required: ['layoutType'],
@@ -531,15 +531,26 @@ async function executeCreateShape(params, context) {
     const { shapeType, x, y, width, height, radius, fill, text, fontSize } = params;
     
     // Validate and process position
-    // If no position specified, use viewport center instead of canvas center
+    // Priority: 1) Explicit coordinates, 2) Task position (AI task pin), 3) Viewport center
     let position;
     if (x === undefined || y === undefined) {
-      const viewportCenter = calculateViewportCenter(context.viewport);
-      position = validatePosition(
-        x !== undefined ? x : viewportCenter.x,
-        y !== undefined ? y : viewportCenter.y
-      );
+      // No explicit coordinates provided
+      if (context.taskPosition) {
+        // Use AI task pin position (when user says "here" in task)
+        position = validatePosition(
+          x !== undefined ? x : context.taskPosition.x,
+          y !== undefined ? y : context.taskPosition.y
+        );
+      } else {
+        // Use viewport center as fallback
+        const viewportCenter = calculateViewportCenter(context.viewport);
+        position = validatePosition(
+          x !== undefined ? x : viewportCenter.x,
+          y !== undefined ? y : viewportCenter.y
+        );
+      }
     } else {
+      // Use explicit coordinates
       position = validatePosition(x, y);
     }
     
@@ -1267,20 +1278,34 @@ async function executeDeleteShapes(params, context) {
     else if (deleteAll) {
       shapesToDelete = [...context.shapes];
     }
-    // Method 3: Delete by type
+    // Method 3: Delete by type AND color (combined filter - highest priority)
+    else if (byType && byColor) {
+      const targetColor = parseColor(byColor);
+      shapesToDelete = context.shapes.filter(s => 
+        s.type === byType && s.fill === targetColor
+      );
+    }
+    // Method 4: Delete by type only
     else if (byType) {
       shapesToDelete = context.shapes.filter(s => s.type === byType);
     }
-    // Method 4: Delete by color
+    // Method 5: Delete by color only
     else if (byColor) {
       const targetColor = parseColor(byColor);
       shapesToDelete = context.shapes.filter(s => s.fill === targetColor);
     }
-    // Method 5: Delete by description
+    // Method 6: Delete by description
     else if (description) {
       shapesToDelete = findShapesByDescription(description, context.shapes);
     }
-    // Method 6: Delete selected shape
+    // Method 7: Delete target shape from AI task (priority over selected)
+    else if (context.targetShapeId) {
+      const targetShape = context.shapes.find(s => s.id === context.targetShapeId);
+      if (targetShape) {
+        shapesToDelete = [targetShape];
+      }
+    }
+    // Method 8: Delete selected shape
     else if (context.selectedId) {
       const selectedShape = context.shapes.find(s => s.id === context.selectedId);
       if (selectedShape) {
@@ -1346,6 +1371,8 @@ async function executeDeleteShapes(params, context) {
     
     if (deleteAll) {
       message = `Deleted ${deletedCount} shape${deletedCount !== 1 ? 's' : ''}`;
+    } else if (byType && byColor) {
+      message = `Deleted ${deletedCount} ${byColor} ${byType}${deletedCount !== 1 ? 's' : ''}`;
     } else if (byType) {
       message = `Deleted ${deletedCount} ${byType}${deletedCount !== 1 ? 's' : ''}`;
     } else if (byColor) {
@@ -1660,22 +1687,27 @@ function executeGetCanvasState(params, context) {
  */
 function executeGetSelectedShapes(params, context) {
   try {
-    if (!context.selectedId) {
+    // Check for target shape from AI task context first
+    const shapeId = context.targetShapeId || context.selectedId;
+    
+    if (!shapeId) {
       return {
         success: true,
         shapes: [],
-        message: 'No shapes currently selected',
+        message: 'No shapes currently selected or targeted',
       };
     }
     
-    const selected = context.shapes.find(s => s.id === context.selectedId);
+    const selected = context.shapes.find(s => s.id === shapeId);
     if (!selected) {
       return {
         success: true,
         shapes: [],
-        message: 'Selected shape not found',
+        message: 'Target shape not found',
       };
     }
+    
+    const isTargeted = context.targetShapeId === shapeId;
     
     return {
       success: true,
@@ -1684,7 +1716,7 @@ function executeGetSelectedShapes(params, context) {
         type: selected.type,
         description: generateShapeDescription(selected),
       }],
-      message: `Selected: ${generateShapeDescription(selected)}`,
+      message: `${isTargeted ? 'Target' : 'Selected'}: ${generateShapeDescription(selected)}`,
     };
   } catch (error) {
     console.error('Error in executeGetSelectedShapes:', error);
@@ -1752,16 +1784,29 @@ function executeSelectShapesByDescription(params, context) {
  */
 async function executeCreateComplexLayout(params, context) {
   try {
-    const { layoutType, config = {} } = params;
+    const { layoutType, config = {}, startX: userStartX, startY: userStartY } = params;
     
-    // Calculate starting position (centered in viewport if available)
-    let startX = 1000;
-    let startY = 1000;
+    // Calculate starting position
+    // Priority: 1) Explicit coordinates, 2) Task position (AI task pin), 3) Viewport center, 4) Default
+    let startX, startY;
     
-    if (context.viewport) {
+    if (userStartX !== undefined && userStartY !== undefined) {
+      // User specified exact position
+      startX = userStartX;
+      startY = userStartY;
+    } else if (context.taskPosition) {
+      // Use AI task pin position (when user says "here" in AI task)
+      startX = context.taskPosition.x;
+      startY = context.taskPosition.y;
+    } else if (context.viewport) {
+      // Auto-position in viewport center (fallback for regular chat)
       const { position, scale, width: vpWidth, height: vpHeight } = context.viewport;
       startX = (-position.x + vpWidth / 2) / scale - 125; // Center with offset
       startY = (-position.y + vpHeight / 2) / scale - 150;
+    } else {
+      // Fallback default position
+      startX = 1000;
+      startY = 1000;
     }
     
     let allShapesData = [];

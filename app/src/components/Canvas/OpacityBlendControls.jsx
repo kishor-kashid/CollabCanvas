@@ -29,6 +29,14 @@ export default function OpacityBlendControls({
   const [opacity, setOpacity] = useState(selectedShape?.opacity || 1.0);
   const [blendMode, setBlendMode] = useState(selectedShape?.blendMode || 'source-over');
 
+  // Update local state when selectedShape changes (e.g., another user changes it)
+  useEffect(() => {
+    if (selectedShape) {
+      setOpacity(selectedShape.opacity || 1.0);
+      setBlendMode(selectedShape.blendMode || 'source-over');
+    }
+  }, [selectedShape?.opacity, selectedShape?.blendMode]);
+
   // Handle Escape key
   useEffect(() => {
     const handleKeyDown = (e) => {

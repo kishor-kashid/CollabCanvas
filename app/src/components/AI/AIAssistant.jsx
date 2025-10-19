@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import ChatMessage from './ChatMessage';
-import { UI_CONFIG, EXAMPLE_COMMANDS } from '../../utils/aiConstants';
+import { UI_CONFIG } from '../../utils/aiConstants';
 
 /**
  * Main AI Assistant chat window
@@ -10,7 +10,6 @@ import { UI_CONFIG, EXAMPLE_COMMANDS } from '../../utils/aiConstants';
  */
 export default function AIAssistant({ isOpen, onClose, onSendMessage, onClearHistory, onRetry, messages, isLoading }) {
   const [input, setInput] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -29,13 +28,6 @@ export default function AIAssistant({ isOpen, onClose, onSendMessage, onClearHis
       inputRef.current.focus();
     }
   }, [isOpen]);
-
-  // Hide suggestions after first message
-  useEffect(() => {
-    if (messages.length > 0) {
-      setShowSuggestions(false);
-    }
-  }, [messages]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -58,11 +50,6 @@ export default function AIAssistant({ isOpen, onClose, onSendMessage, onClearHis
       e.preventDefault();
       handleSubmit(e);
     }
-  };
-
-  const insertSuggestion = (suggestion) => {
-    setInput(suggestion);
-    inputRef.current?.focus();
   };
 
   if (!isOpen) return null;
@@ -132,28 +119,6 @@ export default function AIAssistant({ isOpen, onClose, onSendMessage, onClearHis
           </div>
         )}
 
-        {/* Suggested commands */}
-        {showSuggestions && messages.length === 0 && (
-          <div className="space-y-4 mb-6">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Try these commands:</p>
-            {EXAMPLE_COMMANDS.slice(0, 2).map((category, catIndex) => (
-              <div key={catIndex}>
-                <p className="text-xs font-medium text-gray-700 mb-2">{category.category}</p>
-                <div className="space-y-1">
-                  {category.examples.slice(0, 2).map((example, exIndex) => (
-                    <button
-                      key={exIndex}
-                      onClick={() => insertSuggestion(example)}
-                      className="w-full text-left text-sm bg-white hover:bg-blue-50 text-gray-700 hover:text-blue-700 px-3 py-2 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
-                    >
-                      {example}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Chat messages */}
         {messages.map((msg, index) => (
