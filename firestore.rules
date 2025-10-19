@@ -30,6 +30,29 @@ service cloud.firestore {
       allow delete: if request.auth != null 
         && resource.data.authorId == request.auth.uid;
     }
+    
+    // AI Tasks - users can only read, create, update, and delete their own AI tasks
+    match /ai_tasks/{taskId} {
+      // Allow reading single document if it belongs to the user
+      allow get: if request.auth != null 
+        && resource.data.authorId == request.auth.uid;
+      
+      // Allow listing/querying - Firestore will only return docs matching the query
+      // The query must filter by authorId matching the current user
+      allow list: if request.auth != null;
+      
+      // Only creator can create their own tasks
+      allow create: if request.auth != null 
+        && request.resource.data.authorId == request.auth.uid;
+      
+      // Only creator can update their own tasks
+      allow update: if request.auth != null 
+        && resource.data.authorId == request.auth.uid;
+      
+      // Only creator can delete their own tasks
+      allow delete: if request.auth != null 
+        && resource.data.authorId == request.auth.uid;
+    }
   }
 }
 

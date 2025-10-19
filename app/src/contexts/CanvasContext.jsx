@@ -24,6 +24,7 @@ import { useCanvas } from '../hooks/useCanvas';
 import { useAuth } from '../hooks/useAuth';
 import * as canvasService from '../services/canvas';
 import { cleanupStaleSessions } from '../services/cursors';
+import { deleteCommentsByShapeId } from '../services/comments';
 
 export const CanvasContext = createContext(null);
 
@@ -63,6 +64,9 @@ export function CanvasProvider({ children }) {
   
   // Comment mode
   const [commentMode, setCommentMode] = useState(false);
+  
+  // AI Task mode
+  const [aiTaskMode, setAiTaskMode] = useState(false);
   
   // Clean up stale sessions on mount
   useEffect(() => {
@@ -313,6 +317,14 @@ export function CanvasProvider({ children }) {
       
       // Capture shape data before deletion for undo
       if (shape) {
+        // Delete associated comments first
+        try {
+          await deleteCommentsByShapeId(id);
+        } catch (error) {
+          console.warn('Failed to delete comments for shape:', error);
+          // Continue with shape deletion even if comment deletion fails
+        }
+        
         await canvasService.deleteShape(id);
         
         // Record action for undo
@@ -327,6 +339,13 @@ export function CanvasProvider({ children }) {
         }
         return true;
       } else {
+        // Delete comments even if shape not found locally
+        try {
+          await deleteCommentsByShapeId(id);
+        } catch (error) {
+          console.warn('Failed to delete comments for shape:', error);
+        }
+        
         await canvasService.deleteShape(id);
         if (selectedId === id) {
           setSelectedId(null);
@@ -390,6 +409,14 @@ export function CanvasProvider({ children }) {
     try {
       // Capture shapes before deletion for undo
       const shapesToDelete = shapes.filter(s => shapeIds.includes(s.id));
+      
+      // Delete all associated comments first (in parallel)
+      try {
+        await Promise.all(shapeIds.map(id => deleteCommentsByShapeId(id)));
+      } catch (error) {
+        console.warn('Failed to delete some comments:', error);
+        // Continue with shape deletion even if some comment deletions fail
+      }
       
       const deletedCount = await canvasService.deleteShapesBatch(shapeIds);
       
@@ -1007,6 +1034,9 @@ export function CanvasProvider({ children }) {
     // Comment mode
     commentMode,
     setCommentMode,
+    // AI Task mode
+    aiTaskMode,
+    setAiTaskMode,
   };
   
   return (

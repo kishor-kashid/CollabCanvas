@@ -29,6 +29,10 @@ import { useComments } from '../../hooks/useComments';
 import CommentPin from './CommentPin';
 import CommentThread from './CommentThread';
 import NewCommentDialog from './NewCommentDialog';
+import { useAITasks } from '../../hooks/useAITasks';
+import AITaskPin from './AITaskPin';
+import AITaskDialog from './AITaskDialog';
+import { createAITask, updateAITask, updateAITaskStatus, deleteAITask, deleteAITasksByStatus, getPendingAITasks } from '../../services/aiTasks';
 
 export default function Canvas() {
   const {
@@ -76,6 +80,8 @@ export default function Canvas() {
     duplicateShape,
     commentMode,
     setCommentMode,
+    aiTaskMode,
+    setAiTaskMode,
   } = useContext(CanvasContext);
   
   // Cursor tracking
@@ -85,6 +91,11 @@ export default function Canvas() {
   const { comments, commentThreads, unresolvedCount } = useComments();
   const [selectedCommentThread, setSelectedCommentThread] = useState(null);
   const [newCommentDialog, setNewCommentDialog] = useState(null); // { position, shapeId }
+  
+  // AI Tasks
+  const { aiTasks, pendingTasks, pendingCount, completedCount } = useAITasks(currentUserId);
+  const [selectedAITask, setSelectedAITask] = useState(null);
+  const [aiTaskDialog, setAiTaskDialog] = useState(null); // { position, shapeId, existingTask }
   
   // Color picker state
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
@@ -139,14 +150,30 @@ export default function Canvas() {
         return;
       }
       
-      // Escape key: Close AI chat if open, otherwise close color picker
+      // Escape key: Exit AI task mode, exit comment mode, close AI chat, or close color picker
       if (e.key === 'Escape') {
+        // Priority 1: Exit AI task mode if active
+        if (aiTaskMode) {
+          e.preventDefault();
+          setAiTaskMode(false);
+          return;
+        }
+        
+        // Priority 2: Exit comment mode if active
+        if (commentMode) {
+          e.preventDefault();
+          setCommentMode(false);
+          return;
+        }
+        
+        // Priority 3: Close AI chat if open
         if (isAIChatOpen) {
           e.preventDefault();
           setIsAIChatOpen(false);
           return;
         }
         
+        // Priority 4: Close color picker if in edit mode
         if (isColorPickerOpen && editModeShapeId) {
           e.preventDefault();
           handleColorEditUnlock(editModeShapeId)();
@@ -269,12 +296,20 @@ export default function Canvas() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll, isAIChatOpen, bringShapeToFront, sendShapeToBack, bringShapeForward, sendShapeBackward, undo, redo, copyShape, pasteShape, duplicateShape]);
+  }, [selectedId, shapes, deleteShape, isColorPickerOpen, editModeShapeId, updateShape, deselectAll, isAIChatOpen, commentMode, setCommentMode, aiTaskMode, setAiTaskMode, bringShapeToFront, sendShapeToBack, bringShapeForward, sendShapeBackward, undo, redo, copyShape, pasteShape, duplicateShape]);
   
   // Handle clicking on stage background to deselect or add comment
   const handleStageClick = (e) => {
     // Check if clicked on empty area (stage itself)
     if (e.target === e.target.getStage()) {
+      // If in AI task mode, show AI task dialog
+      if (aiTaskMode) {
+        const stage = e.target.getStage();
+        const position = stage.getRelativePointerPosition();
+        setAiTaskDialog({ position, shapeId: null, existingTask: null });
+        return;
+      }
+      
       // If in comment mode, show new comment dialog
       if (commentMode) {
         const stage = e.target.getStage();
@@ -310,6 +345,19 @@ export default function Canvas() {
   
   // Handle shape selection
   const handleShapeSelect = (id) => {
+    // If in AI task mode, add AI task to shape
+    if (aiTaskMode) {
+      const shape = shapes.find(s => s.id === id);
+      if (shape) {
+        setAiTaskDialog({ 
+          position: { x: shape.x, y: shape.y }, 
+          shapeId: id,
+          existingTask: null
+        });
+      }
+      return;
+    }
+    
     // If in comment mode, add comment to shape
     if (commentMode) {
       const shape = shapes.find(s => s.id === id);
@@ -813,6 +861,44 @@ export default function Canvas() {
               );
             })
           }
+          
+          {/* Render AI task pins */}
+          {aiTasks.map(task => {
+              let position = task.position;
+              
+              // If task is attached to a shape, use shape's position
+              if (task.shapeId) {
+                const shape = shapes.find(s => s.id === task.shapeId);
+                if (shape) {
+                  position = { x: shape.x, y: shape.y };
+                }
+              }
+              
+              if (!position) return null;
+              
+              return (
+                <AITaskPin
+                  key={task.id}
+                  x={position.x}
+                  y={position.y}
+                  status={task.status}
+                  isSelected={selectedAITask && selectedAITask.id === task.id}
+                  onClick={() => {
+                    setSelectedAITask(task);
+                    // Allow editing pending tasks, just show details for completed/failed
+                    if (task.status === 'pending') {
+                      setAiTaskDialog({
+                        position: task.position,
+                        shapeId: task.shapeId,
+                        existingTask: task
+                      });
+                    }
+                  }}
+                  stageScale={scale}
+                />
+              );
+            })
+          }
         </Layer>
       </Stage>
       
@@ -854,6 +940,138 @@ export default function Canvas() {
             await saveMessage(currentUserId, userMessage);
           } catch (error) {
             console.error('Failed to save user message:', error);
+          }
+          
+          // Check if user wants to execute AI tasks
+          const isTaskExecutionRequest = /execute|implement|run|do|apply/i.test(message) && 
+                                         /tasks?|commands?|assigned/i.test(message);
+          
+          if (isTaskExecutionRequest && pendingTasks.length > 0) {
+            // Show AI is processing tasks
+            setAiMessages(prev => [...prev, {
+              role: 'assistant',
+              content: `Found ${pendingTasks.length} pending task(s):\n\n${pendingTasks.map((t, i) => 
+                `${i + 1}. ${t.command}`
+              ).join('\n')}\n\n⏳ Executing now...`,
+              timestamp: Date.now(),
+              isStreaming: true,
+            }]);
+            
+            startAIBatch(); // All tasks = 1 undo action
+            
+            // Execute each task
+            let completedCount = 0;
+            let failedCount = 0;
+            
+            for (let i = 0; i < pendingTasks.length; i++) {
+              const task = pendingTasks[i];
+              
+              try {
+                // Build enhanced command with context
+                let enhancedCommand = task.command;
+                
+                // Add position context
+                if (task.position) {
+                  enhancedCommand += ` at position (${Math.round(task.position.x)}, ${Math.round(task.position.y)})`;
+                }
+                
+                // Add shape context
+                if (task.shapeId) {
+                  const shape = shapes.find(s => s.id === task.shapeId);
+                  if (shape) {
+                    enhancedCommand += ` on the ${shape.fill || ''} ${shape.type}`;
+                  }
+                }
+                
+                // Execute via AI
+                const conversationHistory = [{
+                  role: 'user',
+                  content: enhancedCommand,
+                }];
+                
+                await new Promise((resolve) => {
+                  streamChatCompletion(
+                    conversationHistory,
+                    getToolSchemas(),
+                    () => {}, // Don't show intermediate chunks
+                    async (result) => {
+                      if (result.toolCalls) {
+                        const canvasContext = {
+                          shapes,
+                          selectedId,
+                          currentUserId,
+                          currentColor,
+                          addShape,
+                          addShapesOptimistic,
+                          addShapesBatch,
+                          updateShape,
+                          updateShapesOptimistic,
+                          updateShapesBatch,
+                          deleteShape,
+                          deleteShapesOptimistic,
+                          deleteShapesBatch,
+                          selectShape,
+                          viewport: { position, scale, width: window.innerWidth, height: window.innerHeight },
+                        };
+                        
+                        await handleFunctionCalls(
+                          result.toolCalls,
+                          async (toolName, params) => executeTool(toolName, params, canvasContext)
+                        );
+                      }
+                      
+                      // Mark task as completed
+                      await updateAITaskStatus(task.id, 'completed', result.content || 'Done');
+                      completedCount++;
+                      resolve();
+                    },
+                    async (error) => {
+                      // Mark task as failed
+                      await updateAITaskStatus(task.id, 'failed', error);
+                      failedCount++;
+                      resolve();
+                    }
+                  );
+                });
+                
+                // Small delay between tasks
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+              } catch (error) {
+                console.error(`Failed to execute task ${task.id}:`, error);
+                await updateAITaskStatus(task.id, 'failed', error.message);
+                failedCount++;
+              }
+            }
+            
+            endAIBatch(); // Commit all as single undo
+            
+            // Final summary
+            setAiMessages(prev => {
+              const newMessages = [...prev];
+              newMessages[newMessages.length - 1] = {
+                role: 'assistant',
+                content: `✅ Completed executing ${pendingTasks.length} task(s):\n\n${pendingTasks.map((t, i) => 
+                  `${i + 1}. ${t.command}`
+                ).join('\n')}\n\n**Results:** ${completedCount} completed${failedCount > 0 ? `, ${failedCount} failed` : ''}`,
+                timestamp: Date.now(),
+              };
+              return newMessages;
+            });
+            
+            // Save final message
+            try {
+              await saveMessage(currentUserId, {
+                role: 'assistant',
+                content: `Executed ${completedCount} AI tasks successfully.`,
+                timestamp: Date.now(),
+              });
+            } catch (error) {
+              console.error('Failed to save assistant message:', error);
+            }
+            
+            setIsAILoading(false);
+            return; // Don't process as normal message
           }
           
           try {
@@ -1112,6 +1330,48 @@ export default function Canvas() {
           shapeId={newCommentDialog.shapeId}
           onClose={() => setNewCommentDialog(null)}
           onSuccess={() => {}}
+        />
+      )}
+      
+      {/* AI Task Dialog */}
+      {aiTaskDialog && (
+        <AITaskDialog
+          isOpen={true}
+          position={aiTaskDialog.position}
+          shapeId={aiTaskDialog.shapeId}
+          shapes={shapes}
+          existingTask={aiTaskDialog.existingTask}
+          onClose={() => {
+            setAiTaskDialog(null);
+            setSelectedAITask(null);
+          }}
+          onSubmit={async (command, position, shapeId) => {
+            try {
+              if (aiTaskDialog.existingTask) {
+                // Update existing task
+                await updateAITask(aiTaskDialog.existingTask.id, { command });
+              } else {
+                // Create new task
+                await createAITask(
+                  { command, position, shapeId },
+                  { uid: currentUserId, displayName: 'User', email: '' }
+                );
+              }
+            } catch (error) {
+              console.error('Error saving AI task:', error);
+              alert('Failed to save AI task. Please try again.');
+            }
+          }}
+          onDelete={async (taskId) => {
+            try {
+              await deleteAITask(taskId);
+              setAiTaskDialog(null);
+              setSelectedAITask(null);
+            } catch (error) {
+              console.error('Error deleting AI task:', error);
+              alert('Failed to delete AI task. Please try again.');
+            }
+          }}
         />
       )}
     </div>

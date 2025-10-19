@@ -4,6 +4,9 @@ import { CanvasContext } from '../../contexts/CanvasContext';
 import { SHAPE_TYPES, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
 import ColorPicker from './ColorPicker';
 import { useComments } from '../../hooks/useComments';
+import { useAITasks } from '../../hooks/useAITasks';
+import { useAuth } from '../../hooks/useAuth';
+import { deleteAITasksByStatus } from '../../services/aiTasks';
 
 export default function TopToolbar() {
   const {
@@ -25,6 +28,8 @@ export default function TopToolbar() {
     selectedId,
     commentMode,
     setCommentMode,
+    aiTaskMode,
+    setAiTaskMode,
   } = useContext(CanvasContext);
 
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
@@ -33,6 +38,10 @@ export default function TopToolbar() {
   
   // Get unresolved comment count
   const { unresolvedCount } = useComments();
+  
+  // Get AI tasks count
+  const { currentUser } = useAuth();
+  const { pendingCount, completedCount } = useAITasks(currentUser?.uid);
   
   // Update zoom input when scale changes
   useEffect(() => {
@@ -213,6 +222,57 @@ export default function TopToolbar() {
                   </span>
                 )}
               </button>
+            </div>
+            
+            {/* AI Task Mode Toggle */}
+            <div className="ml-2 relative">
+              <button
+                onClick={() => {
+                  setAiTaskMode(!aiTaskMode);
+                  // Turn off comment mode when enabling AI task mode
+                  if (!aiTaskMode && commentMode) {
+                    setCommentMode(false);
+                  }
+                }}
+                className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg transition-all duration-150 active:scale-95 group ${
+                  aiTaskMode
+                    ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                    : 'hover:bg-purple-50 text-gray-700'
+                }`}
+                title="AI Task Mode (Esc to exit) - Click shapes or canvas to add AI commands"
+              >
+                <svg className={`w-6 h-6 ${aiTaskMode ? 'text-purple-700' : 'text-gray-700 group-hover:text-purple-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                <span className={`text-xs mt-0.5 ${aiTaskMode ? 'text-purple-700' : 'text-gray-600 group-hover:text-purple-600'}`}>AI Tasks</span>
+                
+                {/* Pending count badge */}
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+              
+              {/* Clear completed tasks button - shows when there are completed tasks */}
+              {completedCount > 0 && aiTaskMode && (
+                <button
+                  onClick={async () => {
+                    if (window.confirm(`Delete ${completedCount} completed task(s)?`)) {
+                      try {
+                        await deleteAITasksByStatus(currentUser?.uid, 'completed');
+                      } catch (error) {
+                        console.error('Failed to delete completed tasks:', error);
+                        alert('Failed to delete completed tasks. Please try again.');
+                      }
+                    }
+                  }}
+                  className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs px-2 py-1 rounded shadow-sm whitespace-nowrap z-10"
+                  title="Delete completed tasks"
+                >
+                  🧹 Clear {completedCount} completed
+                </button>
+              )}
             </div>
             </div>
           </div>

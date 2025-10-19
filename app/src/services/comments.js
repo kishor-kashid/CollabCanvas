@@ -6,7 +6,8 @@ import {
   doc, 
   addDoc, 
   updateDoc, 
-  deleteDoc, 
+  deleteDoc,
+  getDocs,
   query, 
   where, 
   orderBy, 
@@ -93,6 +94,36 @@ export async function deleteComment(commentId) {
     await deleteDoc(doc(db, COMMENTS_COLLECTION, commentId));
   } catch (error) {
     console.error('❌ Error deleting comment:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete all comments associated with a shape
+ * @param {string} shapeId - Shape ID
+ * @returns {Promise<number>} Number of comments deleted
+ */
+export async function deleteCommentsByShapeId(shapeId) {
+  try {
+    const q = query(
+      collection(db, COMMENTS_COLLECTION),
+      where('canvasId', '==', CANVAS_ID),
+      where('shapeId', '==', shapeId)
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    // Delete all comments and their replies
+    const deletePromises = snapshot.docs.map(docSnapshot => 
+      deleteDoc(docSnapshot.ref)
+    );
+    
+    await Promise.all(deletePromises);
+    
+    console.log(`🗑️ Deleted ${snapshot.docs.length} comment(s) for shape ${shapeId}`);
+    return snapshot.docs.length;
+  } catch (error) {
+    console.error('❌ Error deleting comments by shapeId:', error);
     throw error;
   }
 }
