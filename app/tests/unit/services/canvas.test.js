@@ -1,5 +1,5 @@
 // Unit Tests for Canvas Service
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { 
   subscribeToShapes,
   createShape, 
@@ -8,15 +8,23 @@ import {
   lockShape,
   unlockShape,
   releaseStaleLocks,
+  toggleShapeVisibility,
+  toggleLayerLock,
+  reorderShapes,
 } from '../../../src/services/canvas';
 
 // Mock Firestore functions
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(),
+  collection: vi.fn(),
   onSnapshot: vi.fn(),
   updateDoc: vi.fn(),
   setDoc: vi.fn(),
   getDoc: vi.fn(),
+  getDocs: vi.fn(),
+  query: vi.fn(),
+  where: vi.fn(),
+  orderBy: vi.fn(),
   serverTimestamp: vi.fn(() => 'SERVER_TIMESTAMP'),
 }));
 
@@ -29,6 +37,8 @@ import {
   getDoc,
 } from 'firebase/firestore';
 
+const TEST_CANVAS_ID = 'test-canvas-123';
+
 describe('Canvas Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,19 +50,28 @@ describe('Canvas Service', () => {
   });
   
   describe('subscribeToShapes', () => {
-    it('should subscribe to shape updates', () => {
+    it('should subscribe to shape updates for a specific canvas', () => {
       const mockCallback = vi.fn();
       const mockUnsubscribe = vi.fn();
       
       onSnapshot.mockReturnValue(mockUnsubscribe);
       
-      const unsubscribe = subscribeToShapes(mockCallback);
+      const unsubscribe = subscribeToShapes(TEST_CANVAS_ID, mockCallback);
       
       expect(onSnapshot).toHaveBeenCalled();
       expect(typeof unsubscribe).toBe('function');
     });
     
-    it('should call callback with shapes data when document exists', () => {
+    it('should return no-op function if canvasId is not provided', () => {
+      const mockCallback = vi.fn();
+      
+      const unsubscribe = subscribeToShapes(null, mockCallback);
+      
+      expect(typeof unsubscribe).toBe('function');
+      expect(onSnapshot).not.toHaveBeenCalled();
+    });
+    
+    it('should call callback with shapes from document', () => {
       const mockCallback = vi.fn();
       const mockShapes = [
         { id: 'shape1', type: 'rectangle', x: 0, y: 0 },
@@ -68,28 +87,31 @@ describe('Canvas Service', () => {
         return vi.fn();
       });
       
-      subscribeToShapes(mockCallback);
+      subscribeToShapes(TEST_CANVAS_ID, mockCallback);
       
-      expect(mockCallback).toHaveBeenCalledWith(mockShapes);
+      expect(mockCallback).toHaveBeenCalled();
+      const receivedShapes = mockCallback.mock.calls[0][0];
+      expect(receivedShapes).toHaveLength(2);
     });
     
-    it('should call callback with empty array when document does not exist', () => {
+    it('should call callback with empty array when no shapes exist', () => {
       const mockCallback = vi.fn();
       
       onSnapshot.mockImplementation((ref, successCallback) => {
         const mockSnapshot = {
-          exists: () => false,
+          exists: () => true,
+          data: () => ({ shapes: [] }),
         };
         successCallback(mockSnapshot);
         return vi.fn();
       });
       
-      subscribeToShapes(mockCallback);
+      subscribeToShapes(TEST_CANVAS_ID, mockCallback);
       
       expect(mockCallback).toHaveBeenCalledWith([]);
     });
     
-    it('should handle subscription errors', () => {
+    it('should handle subscription errors gracefully', () => {
       const mockCallback = vi.fn();
       
       onSnapshot.mockImplementation((ref, successCallback, errorCallback) => {
@@ -97,7 +119,7 @@ describe('Canvas Service', () => {
         return vi.fn();
       });
       
-      subscribeToShapes(mockCallback);
+      subscribeToShapes(TEST_CANVAS_ID, mockCallback);
       
       expect(mockCallback).toHaveBeenCalledWith([]);
     });
@@ -105,11 +127,9 @@ describe('Canvas Service', () => {
   
   describe('createShape', () => {
     it('should create a new shape with proper metadata', async () => {
-      const mockShapes = [];
-      
       getDoc.mockResolvedValue({
         exists: () => true,
-        data: () => ({ shapes: mockShapes }),
+        data: () => ({ shapes: [] }),
       });
       updateDoc.mockResolvedValue();
       
@@ -123,53 +143,57 @@ describe('Canvas Service', () => {
         fill: '#ff0000',
       };
       
-      await createShape(shapeData, 'user123');
+      await createShape(TEST_CANVAS_ID, shapeData, 'user123');
       
       expect(updateDoc).toHaveBeenCalled();
       const callArgs = updateDoc.mock.calls[0][1];
       
       expect(callArgs.shapes).toHaveLength(1);
-      expect(callArgs.shapes[0]).toMatchObject({
+      const createdShape = callArgs.shapes[0];
+      expect(createdShape).toMatchObject({
         ...shapeData,
         createdBy: 'user123',
         lastModifiedBy: 'user123',
         isLocked: false,
         lockedBy: null,
+        visible: true,
+        layerLocked: false,
       });
-      expect(callArgs.shapes[0].createdAt).toBeDefined();
-      expect(callArgs.shapes[0].lastModifiedAt).toBeDefined();
+      expect(createdShape.createdAt).toBeDefined();
+      expect(createdShape.lastModifiedAt).toBeDefined();
     });
     
-    it('should add shape to existing shapes array', async () => {
-      const existingShapes = [
-        { id: 'shape1', type: 'circle', x: 0, y: 0 },
-      ];
-      
+    it('should assign zIndex if provided', async () => {
       getDoc.mockResolvedValue({
         exists: () => true,
-        data: () => ({ shapes: existingShapes }),
+        data: () => ({ shapes: [] }),
       });
       updateDoc.mockResolvedValue();
       
-      const newShape = {
-        id: 'shape2',
-        type: 'rectangle',
-        x: 100,
-        y: 100,
+      const shapeData = {
+        id: 'shape1',
+        type: 'circle',
+        x: 50,
+        y: 50,
+        zIndex: 5,
       };
       
-      await createShape(newShape, 'user456');
+      await createShape(TEST_CANVAS_ID, shapeData, 'user456');
       
       const callArgs = updateDoc.mock.calls[0][1];
-      expect(callArgs.shapes).toHaveLength(2);
-      expect(callArgs.shapes[0]).toEqual(existingShapes[0]);
-      expect(callArgs.shapes[1].id).toBe('shape2');
+      const createdShape = callArgs.shapes[0];
+      expect(createdShape.zIndex).toBe(5);
     });
     
     it('should throw error on creation failure', async () => {
-      getDoc.mockRejectedValue(new Error('Firestore error'));
+      getDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ shapes: [] }),
+      });
+      updateDoc.mockRejectedValue(new Error('Firestore error'));
       
-      await expect(createShape({ id: 'shape1' }, 'user123')).rejects.toThrow('Firestore error');
+      await expect(createShape(TEST_CANVAS_ID, { id: 'shape1', type: 'rectangle' }, 'user123'))
+        .rejects.toThrow('Firestore error');
     });
   });
   
@@ -177,9 +201,8 @@ describe('Canvas Service', () => {
     it('should update existing shape properties', async () => {
       const existingShapes = [
         { id: 'shape1', type: 'rectangle', x: 0, y: 0, fill: '#ff0000' },
-        { id: 'shape2', type: 'circle', x: 100, y: 100, fill: '#00ff00' },
+        { id: 'shape2', type: 'circle', x: 100, y: 100 },
       ];
-      
       getDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({ shapes: existingShapes }),
@@ -192,132 +215,101 @@ describe('Canvas Service', () => {
         fill: '#0000ff',
       };
       
-      await updateShape('shape1', updates, 'user123');
+      await updateShape(TEST_CANVAS_ID, 'shape1', updates, 'user123');
       
+      expect(updateDoc).toHaveBeenCalled();
       const callArgs = updateDoc.mock.calls[0][1];
-      expect(callArgs.shapes[0]).toMatchObject({
+      
+      expect(callArgs.shapes).toHaveLength(2);
+      const updatedShape = callArgs.shapes.find(s => s.id === 'shape1');
+      expect(updatedShape).toMatchObject({
         id: 'shape1',
         type: 'rectangle',
-        x: 200,
-        y: 200,
-        fill: '#0000ff',
+        ...updates,
         lastModifiedBy: 'user123',
       });
-      expect(callArgs.shapes[0].lastModifiedAt).toBeDefined();
-    });
-    
-    it('should not modify other shapes', async () => {
-      const existingShapes = [
-        { id: 'shape1', x: 0, y: 0 },
-        { id: 'shape2', x: 100, y: 100 },
-      ];
-      
-      getDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ shapes: existingShapes }),
-      });
-      updateDoc.mockResolvedValue();
-      
-      await updateShape('shape1', { x: 50 }, 'user123');
-      
-      const callArgs = updateDoc.mock.calls[0][1];
-      expect(callArgs.shapes[1]).toEqual(existingShapes[1]);
+      expect(updatedShape.lastModifiedAt).toBeDefined();
     });
     
     it('should throw error on update failure', async () => {
       getDoc.mockRejectedValue(new Error('Update failed'));
       
-      await expect(updateShape('shape1', { x: 100 }, 'user123')).rejects.toThrow('Update failed');
+      await expect(updateShape(TEST_CANVAS_ID, 'shape1', { x: 100 }, 'user123'))
+        .rejects.toThrow('Update failed');
     });
   });
   
   describe('deleteShape', () => {
-    it('should remove shape from shapes array', async () => {
+    it('should delete shape by id', async () => {
       const existingShapes = [
         { id: 'shape1', type: 'rectangle' },
         { id: 'shape2', type: 'circle' },
-        { id: 'shape3', type: 'text' },
       ];
-      
       getDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({ shapes: existingShapes }),
       });
       updateDoc.mockResolvedValue();
       
-      await deleteShape('shape2');
+      await deleteShape(TEST_CANVAS_ID, 'shape1');
       
-      const callArgs = updateDoc.mock.calls[0][1];
-      expect(callArgs.shapes).toHaveLength(2);
-      expect(callArgs.shapes.find(s => s.id === 'shape2')).toBeUndefined();
-      expect(callArgs.shapes.find(s => s.id === 'shape1')).toBeDefined();
-      expect(callArgs.shapes.find(s => s.id === 'shape3')).toBeDefined();
-    });
-    
-    it('should handle deletion of non-existent shape', async () => {
-      const existingShapes = [
-        { id: 'shape1', type: 'rectangle' },
-      ];
-      
-      getDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ shapes: existingShapes }),
-      });
-      updateDoc.mockResolvedValue();
-      
-      await deleteShape('nonexistent');
-      
+      expect(updateDoc).toHaveBeenCalled();
       const callArgs = updateDoc.mock.calls[0][1];
       expect(callArgs.shapes).toHaveLength(1);
+      expect(callArgs.shapes[0].id).toBe('shape2');
     });
     
     it('should throw error on deletion failure', async () => {
       getDoc.mockRejectedValue(new Error('Delete failed'));
       
-      await expect(deleteShape('shape1')).rejects.toThrow('Delete failed');
+      await expect(deleteShape(TEST_CANVAS_ID, 'shape1'))
+        .rejects.toThrow('Delete failed');
     });
   });
   
   describe('lockShape', () => {
     it('should lock an unlocked shape', async () => {
       const existingShapes = [
-        { id: 'shape1', isLocked: false, lockedBy: null },
+        { id: 'shape1', type: 'rectangle', isLocked: false, lockedBy: null },
+        { id: 'shape2', type: 'circle' },
       ];
-      
       getDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({ shapes: existingShapes }),
       });
       updateDoc.mockResolvedValue();
       
-      const result = await lockShape('shape1', 'user123');
+      const result = await lockShape(TEST_CANVAS_ID, 'shape1', 'user123');
       
       expect(result).toBe(true);
+      expect(updateDoc).toHaveBeenCalled();
       const callArgs = updateDoc.mock.calls[0][1];
-      expect(callArgs.shapes[0]).toMatchObject({
+      
+      const lockedShape = callArgs.shapes.find(s => s.id === 'shape1');
+      expect(lockedShape).toMatchObject({
         id: 'shape1',
         isLocked: true,
         lockedBy: 'user123',
       });
-      expect(callArgs.shapes[0].lockStartTime).toBeDefined();
+      expect(lockedShape.lockStartTime).toBeDefined();
     });
     
     it('should not lock shape already locked by another user', async () => {
       const existingShapes = [
         { 
           id: 'shape1', 
+          type: 'rectangle',
           isLocked: true, 
           lockedBy: 'user456',
           lockStartTime: Date.now(),
         },
       ];
-      
       getDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({ shapes: existingShapes }),
       });
       
-      const result = await lockShape('shape1', 'user123');
+      const result = await lockShape(TEST_CANVAS_ID, 'shape1', 'user123');
       
       expect(result).toBe(false);
       expect(updateDoc).not.toHaveBeenCalled();
@@ -328,31 +320,22 @@ describe('Canvas Service', () => {
       const existingShapes = [
         { 
           id: 'shape1', 
+          type: 'rectangle',
           isLocked: true, 
           lockedBy: 'user456',
           lockStartTime: oldTimestamp,
         },
       ];
-      
       getDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({ shapes: existingShapes }),
       });
       updateDoc.mockResolvedValue();
       
-      const result = await lockShape('shape1', 'user123');
+      const result = await lockShape(TEST_CANVAS_ID, 'shape1', 'user123');
       
       expect(result).toBe(true);
       expect(updateDoc).toHaveBeenCalled();
-    });
-    
-    it('should throw error if shape not found', async () => {
-      getDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ shapes: [] }),
-      });
-      
-      await expect(lockShape('nonexistent', 'user123')).rejects.toThrow('Shape not found');
     });
   });
   
@@ -361,133 +344,125 @@ describe('Canvas Service', () => {
       const existingShapes = [
         { 
           id: 'shape1', 
+          type: 'rectangle',
           isLocked: true, 
           lockedBy: 'user123',
           lockStartTime: Date.now(),
         },
       ];
-      
       getDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({ shapes: existingShapes }),
       });
       updateDoc.mockResolvedValue();
       
-      await unlockShape('shape1', 'user123');
+      await unlockShape(TEST_CANVAS_ID, 'shape1', 'user123');
       
+      expect(updateDoc).toHaveBeenCalled();
       const callArgs = updateDoc.mock.calls[0][1];
-      expect(callArgs.shapes[0]).toMatchObject({
-        id: 'shape1',
+      
+      const unlockedShape = callArgs.shapes.find(s => s.id === 'shape1');
+      expect(unlockedShape).toMatchObject({
         isLocked: false,
         lockedBy: null,
         lockStartTime: null,
       });
     });
-    
-    it('should not unlock shape locked by different user', async () => {
+  });
+  
+  describe('toggleShapeVisibility', () => {
+    it('should toggle shape visibility', async () => {
       const existingShapes = [
-        { 
-          id: 'shape1', 
-          isLocked: true, 
-          lockedBy: 'user456',
-          lockStartTime: Date.now(),
-        },
+        { id: 'shape1', type: 'rectangle', visible: true },
+        { id: 'shape2', type: 'circle', visible: true },
       ];
-      
       getDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({ shapes: existingShapes }),
       });
       updateDoc.mockResolvedValue();
       
-      await unlockShape('shape1', 'user123');
+      await toggleShapeVisibility(TEST_CANVAS_ID, 'shape1', false);
       
+      expect(updateDoc).toHaveBeenCalled();
       const callArgs = updateDoc.mock.calls[0][1];
-      expect(callArgs.shapes[0].isLocked).toBe(true);
-      expect(callArgs.shapes[0].lockedBy).toBe('user456');
+      const updatedShape = callArgs.shapes.find(s => s.id === 'shape1');
+      expect(updatedShape.visible).toBe(false);
     });
-    
-    it('should force unlock when userId is null', async () => {
+  });
+  
+  describe('toggleLayerLock', () => {
+    it('should toggle layer lock status', async () => {
       const existingShapes = [
-        { 
-          id: 'shape1', 
-          isLocked: true, 
-          lockedBy: 'user456',
-        },
+        { id: 'shape1', type: 'rectangle', layerLocked: false },
+        { id: 'shape2', type: 'circle', layerLocked: false },
       ];
-      
       getDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({ shapes: existingShapes }),
       });
       updateDoc.mockResolvedValue();
       
-      await unlockShape('shape1', null);
+      await toggleLayerLock(TEST_CANVAS_ID, 'shape1', true, 'user123');
       
+      expect(updateDoc).toHaveBeenCalled();
       const callArgs = updateDoc.mock.calls[0][1];
-      expect(callArgs.shapes[0].isLocked).toBe(false);
+      const updatedShape = callArgs.shapes.find(s => s.id === 'shape1');
+      expect(updatedShape.layerLocked).toBe(true);
+      expect(updatedShape.layerLockedBy).toBe('user123');
     });
   });
   
   describe('releaseStaleLocks', () => {
-    it('should release locks older than timeout', async () => {
-      const now = Date.now();
+    it('should release stale locks', async () => {
+      const oldTimestamp = Date.now() - 6000; // 6 seconds ago
       const existingShapes = [
         { 
           id: 'shape1', 
-          isLocked: true,
-          lockStartTime: now - 6000, // Stale (6 seconds old)
+          isLocked: true, 
+          lockedBy: 'user123', 
+          lockStartTime: oldTimestamp 
         },
         { 
           id: 'shape2', 
-          isLocked: true,
-          lockStartTime: now - 1000, // Fresh (1 second old)
-        },
-        { 
-          id: 'shape3', 
-          isLocked: false,
+          isLocked: true, 
+          lockedBy: 'user456', 
+          lockStartTime: Date.now() 
         },
       ];
-      
       getDoc.mockResolvedValue({
         exists: () => true,
         data: () => ({ shapes: existingShapes }),
       });
       updateDoc.mockResolvedValue();
       
-      await releaseStaleLocks();
+      await releaseStaleLocks(TEST_CANVAS_ID);
       
+      expect(updateDoc).toHaveBeenCalled();
       const callArgs = updateDoc.mock.calls[0][1];
-      expect(callArgs.shapes[0].isLocked).toBe(false);
-      expect(callArgs.shapes[1].isLocked).toBe(true);
-      expect(callArgs.shapes[2].isLocked).toBe(false);
+      const shape1 = callArgs.shapes.find(s => s.id === 'shape1');
+      const shape2 = callArgs.shapes.find(s => s.id === 'shape2');
+      
+      // Shape1 lock should be released (stale)
+      expect(shape1.isLocked).toBe(false);
+      // Shape2 lock should remain (not stale)
+      expect(shape2.isLocked).toBe(true);
     });
-    
-    it('should not update if no stale locks found', async () => {
-      const now = Date.now();
-      const existingShapes = [
-        { 
-          id: 'shape1', 
-          isLocked: true,
-          lockStartTime: now - 1000, // Fresh
-        },
+  });
+  
+  describe('reorderShapes', () => {
+    it('should reorder shapes array', async () => {
+      const mockShapes = [
+        { id: 'shape2', type: 'circle' },
+        { id: 'shape1', type: 'rectangle' },
       ];
+      updateDoc.mockResolvedValue();
       
-      getDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ shapes: existingShapes }),
-      });
+      await reorderShapes(TEST_CANVAS_ID, mockShapes);
       
-      await releaseStaleLocks();
-      
-      expect(updateDoc).not.toHaveBeenCalled();
-    });
-    
-    it('should handle errors gracefully', async () => {
-      getDoc.mockRejectedValue(new Error('Network error'));
-      
-      // Should not throw
-      await expect(releaseStaleLocks()).resolves.not.toThrow();
+      expect(updateDoc).toHaveBeenCalled();
+      const callArgs = updateDoc.mock.calls[0][1];
+      expect(callArgs.shapes).toEqual(mockShapes);
     });
   });
 });

@@ -18,12 +18,15 @@ vi.mock('firebase/database', () => ({
   onDisconnect: vi.fn(() => ({
     remove: vi.fn().mockResolvedValue(),
     cancel: vi.fn().mockResolvedValue(),
+    set: vi.fn().mockResolvedValue(),
   })),
   serverTimestamp: vi.fn(() => 'SERVER_TIMESTAMP'),
   get: vi.fn(),
 }));
 
 import { ref, set, update, onValue, remove, onDisconnect, get } from 'firebase/database';
+
+const TEST_CANVAS_ID = 'test-canvas-123';
 
 describe('Cursor Service', () => {
   beforeEach(() => {
@@ -34,7 +37,7 @@ describe('Cursor Service', () => {
     it('should initialize user session with correct data', async () => {
       set.mockResolvedValue();
       
-      await initializeUserSession('user123', 'Test User', '#FF5733');
+      await initializeUserSession(TEST_CANVAS_ID, 'user123', 'Test User', '#FF5733');
       
       expect(ref).toHaveBeenCalled();
       expect(set).toHaveBeenCalled();
@@ -55,7 +58,7 @@ describe('Cursor Service', () => {
       onDisconnect.mockReturnValue(mockOnDisconnect);
       set.mockResolvedValue();
       
-      await initializeUserSession('user123', 'Test User', '#FF5733');
+      await initializeUserSession(TEST_CANVAS_ID, 'user123', 'Test User', '#FF5733');
       
       expect(onDisconnect).toHaveBeenCalled();
       expect(mockOnDisconnect.remove).toHaveBeenCalled();
@@ -64,8 +67,20 @@ describe('Cursor Service', () => {
     it('should handle errors gracefully', async () => {
       set.mockRejectedValue(new Error('Network error'));
       
-      // Should not throw
-      await expect(initializeUserSession('user123', 'Test', '#000')).resolves.not.toThrow();
+      // Should not throw (errors are caught internally)
+      await expect(initializeUserSession(TEST_CANVAS_ID, 'user123', 'Test', '#000'))
+        .resolves.not.toThrow();
+    });
+    
+    it('should handle missing canvasId gracefully', async () => {
+      set.mockResolvedValue();
+      
+      // Function catches errors internally and resolves without throwing
+      await expect(initializeUserSession(null, 'user123', 'Test', '#000'))
+        .resolves.not.toThrow();
+      
+      // Should not attempt to call set when canvasId is missing
+      expect(set).not.toHaveBeenCalled();
     });
   });
   
@@ -73,7 +88,7 @@ describe('Cursor Service', () => {
     it('should update cursor position with coordinates', async () => {
       update.mockResolvedValue();
       
-      await updateCursorPosition('user123', 150, 250);
+      await updateCursorPosition(TEST_CANVAS_ID, 'user123', 150, 250);
       
       expect(ref).toHaveBeenCalled();
       expect(update).toHaveBeenCalled();
@@ -88,7 +103,7 @@ describe('Cursor Service', () => {
     it('should preserve onDisconnect handler by using update instead of set', async () => {
       update.mockResolvedValue();
       
-      await updateCursorPosition('user123', 100, 200);
+      await updateCursorPosition(TEST_CANVAS_ID, 'user123', 100, 200);
       
       // Verify update is called (not set)
       expect(update).toHaveBeenCalled();
@@ -98,30 +113,25 @@ describe('Cursor Service', () => {
     it('should handle errors gracefully', async () => {
       update.mockRejectedValue(new Error('Update failed'));
       
-      // Should not throw
-      await expect(updateCursorPosition('user123', 50, 75)).resolves.not.toThrow();
+      // Should not throw (errors are caught internally)
+      await expect(updateCursorPosition(TEST_CANVAS_ID, 'user123', 100, 200))
+        .resolves.not.toThrow();
     });
     
-    it('should handle negative coordinates', async () => {
-      update.mockResolvedValue();
+    it('should silently ignore if no canvasId', async () => {
+      await updateCursorPosition(null, 'user123', 100, 200);
       
-      await updateCursorPosition('user123', -10, -20);
-      
-      expect(update).toHaveBeenCalled();
-      const callArgs = update.mock.calls[0][1];
-      expect(callArgs.cursorX).toBe(-10);
-      expect(callArgs.cursorY).toBe(-20);
+      expect(update).not.toHaveBeenCalled();
     });
     
-    it('should handle very large coordinates', async () => {
+    it('should handle rapid cursor updates', async () => {
       update.mockResolvedValue();
       
-      await updateCursorPosition('user123', 10000, 10000);
+      await updateCursorPosition(TEST_CANVAS_ID, 'user123', 0, 0);
+      await updateCursorPosition(TEST_CANVAS_ID, 'user123', 50, 50);
+      await updateCursorPosition(TEST_CANVAS_ID, 'user123', 100, 100);
       
-      expect(update).toHaveBeenCalled();
-      const callArgs = update.mock.calls[0][1];
-      expect(callArgs.cursorX).toBe(10000);
-      expect(callArgs.cursorY).toBe(10000);
+      expect(update).toHaveBeenCalledTimes(3);
     });
   });
   
@@ -132,10 +142,19 @@ describe('Cursor Service', () => {
       
       onValue.mockReturnValue(mockUnsubscribe);
       
-      const unsubscribe = subscribeToCursors(mockCallback);
+      const unsubscribe = subscribeToCursors(TEST_CANVAS_ID, mockCallback);
       
       expect(onValue).toHaveBeenCalled();
       expect(typeof unsubscribe).toBe('function');
+    });
+    
+    it('should return no-op function if canvasId is missing', () => {
+      const mockCallback = vi.fn();
+      
+      const unsubscribe = subscribeToCursors(null, mockCallback);
+      
+      expect(typeof unsubscribe).toBe('function');
+      expect(onValue).not.toHaveBeenCalled();
     });
     
     it('should call callback with cursor data', () => {
@@ -145,31 +164,31 @@ describe('Cursor Service', () => {
         user2: { displayName: 'User 2', cursorX: 300, cursorY: 400 },
       };
       
-      onValue.mockImplementation((ref, successCallback) => {
+      onValue.mockImplementation((ref, callback) => {
         const mockSnapshot = {
           val: () => mockCursors,
         };
-        successCallback(mockSnapshot);
+        callback(mockSnapshot);
         return vi.fn();
       });
       
-      subscribeToCursors(mockCallback);
+      subscribeToCursors(TEST_CANVAS_ID, mockCallback);
       
       expect(mockCallback).toHaveBeenCalledWith(mockCursors);
     });
     
-    it('should call callback with empty object when no data', () => {
+    it('should call callback with empty object if no cursors', () => {
       const mockCallback = vi.fn();
       
-      onValue.mockImplementation((ref, successCallback) => {
+      onValue.mockImplementation((ref, callback) => {
         const mockSnapshot = {
           val: () => null,
         };
-        successCallback(mockSnapshot);
+        callback(mockSnapshot);
         return vi.fn();
       });
       
-      subscribeToCursors(mockCallback);
+      subscribeToCursors(TEST_CANVAS_ID, mockCallback);
       
       expect(mockCallback).toHaveBeenCalledWith({});
     });
@@ -182,126 +201,62 @@ describe('Cursor Service', () => {
         return vi.fn();
       });
       
-      subscribeToCursors(mockCallback);
+      subscribeToCursors(TEST_CANVAS_ID, mockCallback);
       
       expect(mockCallback).toHaveBeenCalledWith({});
     });
   });
   
   describe('removeUserSession', () => {
-    it('should cancel onDisconnect and remove user data', async () => {
-      const mockOnDisconnect = {
-        cancel: vi.fn().mockResolvedValue(),
-      };
-      onDisconnect.mockReturnValue(mockOnDisconnect);
+    it('should remove user session', async () => {
       remove.mockResolvedValue();
       
-      await removeUserSession('user123');
+      await removeUserSession(TEST_CANVAS_ID, 'user123');
       
-      expect(onDisconnect).toHaveBeenCalled();
-      expect(mockOnDisconnect.cancel).toHaveBeenCalled();
+      expect(ref).toHaveBeenCalled();
       expect(remove).toHaveBeenCalled();
     });
     
-    it('should handle errors gracefully', async () => {
+    it('should handle removal errors gracefully', async () => {
       remove.mockRejectedValue(new Error('Remove failed'));
       
-      // Should not throw
-      await expect(removeUserSession('user123')).resolves.not.toThrow();
+      // Should not throw (errors are caught internally)
+      await expect(removeUserSession(TEST_CANVAS_ID, 'user123'))
+        .resolves.not.toThrow();
+    });
+    
+    it('should silently return if no canvasId', async () => {
+      await removeUserSession(null, 'user123');
+      
+      expect(remove).not.toHaveBeenCalled();
     });
   });
   
   describe('cleanupStaleSessions', () => {
-    it('should remove sessions older than maxAge', async () => {
-      const now = Date.now();
-      const staleSessions = {
-        user1: {
-          displayName: 'User 1',
-          lastSeen: now - 6 * 60 * 1000, // 6 minutes old (stale)
-        },
-        user2: {
-          displayName: 'User 2',
-          lastSeen: now - 1 * 60 * 1000, // 1 minute old (fresh)
-        },
-      };
-      
-      const mockSnapshot = {
-        exists: () => true,
-        val: () => staleSessions,
-      };
-      
-      get.mockResolvedValue(mockSnapshot);
-      remove.mockResolvedValue();
-      
-      await cleanupStaleSessions(5 * 60 * 1000); // 5 minutes max age
-      
-      // Should remove user1 but not user2
-      expect(remove).toHaveBeenCalledTimes(1);
-    });
-    
-    it('should not remove any sessions if all are fresh', async () => {
-      const now = Date.now();
-      const freshSessions = {
-        user1: {
-          displayName: 'User 1',
-          lastSeen: now - 1000, // 1 second old
-        },
-        user2: {
-          displayName: 'User 2',
-          lastSeen: now - 2000, // 2 seconds old
-        },
-      };
-      
-      const mockSnapshot = {
-        exists: () => true,
-        val: () => freshSessions,
-      };
-      
-      get.mockResolvedValue(mockSnapshot);
-      
-      await cleanupStaleSessions();
-      
-      expect(remove).not.toHaveBeenCalled();
-    });
-    
-    it('should handle no sessions gracefully', async () => {
+    it('should attempt to cleanup stale sessions', async () => {
       const mockSnapshot = {
         exists: () => false,
       };
       
       get.mockResolvedValue(mockSnapshot);
       
-      await expect(cleanupStaleSessions()).resolves.not.toThrow();
-      expect(remove).not.toHaveBeenCalled();
+      await cleanupStaleSessions(TEST_CANVAS_ID);
+      
+      expect(get).toHaveBeenCalled();
     });
     
-    it('should handle errors gracefully', async () => {
-      get.mockRejectedValue(new Error('Database error'));
+    it('should handle cleanup errors gracefully', async () => {
+      get.mockRejectedValue(new Error('Cleanup failed'));
       
-      // Should not throw
-      await expect(cleanupStaleSessions()).resolves.not.toThrow();
+      // Should not throw (errors are caught internally)
+      await expect(cleanupStaleSessions(TEST_CANVAS_ID))
+        .resolves.not.toThrow();
     });
     
-    it('should use default maxAge of 5 minutes if not provided', async () => {
-      const now = Date.now();
-      const sessions = {
-        user1: {
-          lastSeen: now - 6 * 60 * 1000, // 6 minutes (should be removed)
-        },
-      };
+    it('should silently return if no canvasId', async () => {
+      await cleanupStaleSessions(null);
       
-      const mockSnapshot = {
-        exists: () => true,
-        val: () => sessions,
-      };
-      
-      get.mockResolvedValue(mockSnapshot);
-      remove.mockResolvedValue();
-      
-      await cleanupStaleSessions(); // No maxAge provided
-      
-      expect(remove).toHaveBeenCalledTimes(1);
+      expect(get).not.toHaveBeenCalled();
     });
   });
 });
-

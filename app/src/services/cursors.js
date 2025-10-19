@@ -113,6 +113,12 @@ export async function removeUserSession(canvasId, userId) {
     // Note: We don't cancel onDisconnect here - it serves as a backup cleanup
     await remove(userRef);
   } catch (error) {
+    // PERMISSION_DENIED is expected when user logs out (auth becomes null)
+    // The onDisconnect handler will clean up automatically in this case
+    if (error.code === 'PERMISSION_DENIED' || error.message?.includes('PERMISSION_DENIED')) {
+      // This is expected on logout - onDisconnect will handle cleanup
+      return;
+    }
     console.error('❌ Error removing user session:', error);
   }
 }

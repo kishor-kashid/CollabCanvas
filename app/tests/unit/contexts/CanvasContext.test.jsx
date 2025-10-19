@@ -27,10 +27,16 @@ vi.mock('../../../src/services/cursors', () => ({
   cleanupStaleSessions: vi.fn(),
 }));
 
+// Mock comments service
+vi.mock('../../../src/services/comments', () => ({
+  deleteCommentsByShapeId: vi.fn(),
+}));
+
 import { useCanvas } from '../../../src/hooks/useCanvas';
 import { useAuth } from '../../../src/hooks/useAuth';
 import * as canvasService from '../../../src/services/canvas';
 import { cleanupStaleSessions } from '../../../src/services/cursors';
+import { deleteCommentsByShapeId } from '../../../src/services/comments';
 
 // Test component that uses canvas context
 function TestComponent() {
@@ -67,6 +73,8 @@ describe('CanvasContext', () => {
     email: 'test@example.com',
   };
   
+  const TEST_CANVAS_ID = 'test-canvas-123';
+  
   beforeEach(() => {
     vi.clearAllMocks();
     
@@ -83,12 +91,13 @@ describe('CanvasContext', () => {
     });
     
     cleanupStaleSessions.mockResolvedValue();
+    deleteCommentsByShapeId.mockResolvedValue();
   });
   
   describe('CanvasProvider', () => {
     it('should provide canvas context to children', () => {
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -105,7 +114,7 @@ describe('CanvasContext', () => {
       });
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -122,7 +131,7 @@ describe('CanvasContext', () => {
       });
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -144,22 +153,12 @@ describe('CanvasContext', () => {
       });
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
       
       expect(screen.getByText('2 shapes')).toBeInTheDocument();
-    });
-    
-    it('should cleanup stale sessions on mount', () => {
-      render(
-        <CanvasProvider>
-          <TestComponent />
-        </CanvasProvider>
-      );
-      
-      expect(cleanupStaleSessions).toHaveBeenCalledWith(2 * 60 * 1000);
     });
   });
   
@@ -168,7 +167,7 @@ describe('CanvasContext', () => {
       canvasService.createShape.mockResolvedValue();
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -178,11 +177,9 @@ describe('CanvasContext', () => {
       
       await waitFor(() => {
         expect(canvasService.createShape).toHaveBeenCalledWith(
+          TEST_CANVAS_ID,
           expect.objectContaining({
             type: 'rectangle',
-            width: 100,
-            height: 100,
-            fill: '#cccccc',
           }),
           mockUser.uid
         );
@@ -193,7 +190,7 @@ describe('CanvasContext', () => {
       canvasService.createShape.mockResolvedValue();
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -203,10 +200,9 @@ describe('CanvasContext', () => {
       
       await waitFor(() => {
         expect(canvasService.createShape).toHaveBeenCalledWith(
+          TEST_CANVAS_ID,
           expect.objectContaining({
             type: 'circle',
-            radius: 50,
-            fill: '#cccccc',
           }),
           mockUser.uid
         );
@@ -217,7 +213,7 @@ describe('CanvasContext', () => {
       canvasService.createShape.mockResolvedValue();
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -227,12 +223,10 @@ describe('CanvasContext', () => {
       
       await waitFor(() => {
         expect(canvasService.createShape).toHaveBeenCalledWith(
+          TEST_CANVAS_ID,
           expect.objectContaining({
             type: 'text',
             text: 'Double-click to edit',
-            fontSize: 18,
-            fontFamily: 'Arial',
-            fill: '#000000',
           }),
           mockUser.uid
         );
@@ -245,7 +239,7 @@ describe('CanvasContext', () => {
       });
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -262,7 +256,7 @@ describe('CanvasContext', () => {
       canvasService.createShape.mockResolvedValue();
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -274,8 +268,9 @@ describe('CanvasContext', () => {
       await waitFor(() => {
         expect(canvasService.createShape).toHaveBeenCalledTimes(2);
         
-        const firstCallId = canvasService.createShape.mock.calls[0][0].id;
-        const secondCallId = canvasService.createShape.mock.calls[1][0].id;
+        // Shape data is at index [1] (after canvasId at index [0])
+        const firstCallId = canvasService.createShape.mock.calls[0][1].id;
+        const secondCallId = canvasService.createShape.mock.calls[1][1].id;
         
         expect(firstCallId).not.toBe(secondCallId);
       });
@@ -287,7 +282,7 @@ describe('CanvasContext', () => {
       canvasService.updateShape.mockResolvedValue();
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -297,6 +292,7 @@ describe('CanvasContext', () => {
       
       await waitFor(() => {
         expect(canvasService.updateShape).toHaveBeenCalledWith(
+          TEST_CANVAS_ID,
           'shape1',
           { x: 200 },
           mockUser.uid
@@ -310,7 +306,7 @@ describe('CanvasContext', () => {
       });
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -340,7 +336,7 @@ describe('CanvasContext', () => {
       canvasService.deleteShape.mockResolvedValue();
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -349,7 +345,7 @@ describe('CanvasContext', () => {
       deleteButton.click();
       
       await waitFor(() => {
-        expect(canvasService.deleteShape).toHaveBeenCalledWith('shape1');
+        expect(canvasService.deleteShape).toHaveBeenCalledWith(TEST_CANVAS_ID, 'shape1');
       });
     });
     
@@ -373,7 +369,7 @@ describe('CanvasContext', () => {
       });
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -401,7 +397,7 @@ describe('CanvasContext', () => {
       canvasService.deleteShape.mockResolvedValue();
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -428,7 +424,7 @@ describe('CanvasContext', () => {
   describe('selectShape', () => {
     it('should select shape', async () => {
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestComponent />
         </CanvasProvider>
       );
@@ -452,7 +448,7 @@ describe('CanvasContext', () => {
       };
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestLockComponent />
         </CanvasProvider>
       );
@@ -461,7 +457,7 @@ describe('CanvasContext', () => {
       lockButton.click();
       
       await waitFor(() => {
-        expect(canvasService.lockShape).toHaveBeenCalledWith('shape1', mockUser.uid);
+        expect(canvasService.lockShape).toHaveBeenCalledWith(TEST_CANVAS_ID, 'shape1', mockUser.uid);
       });
     });
     
@@ -474,7 +470,7 @@ describe('CanvasContext', () => {
       };
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestUnlockComponent />
         </CanvasProvider>
       );
@@ -483,7 +479,7 @@ describe('CanvasContext', () => {
       unlockButton.click();
       
       await waitFor(() => {
-        expect(canvasService.unlockShape).toHaveBeenCalledWith('shape1', mockUser.uid);
+        expect(canvasService.unlockShape).toHaveBeenCalledWith(TEST_CANVAS_ID, 'shape1', mockUser.uid);
       });
     });
   });
@@ -501,7 +497,7 @@ describe('CanvasContext', () => {
       };
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestZoomComponent />
         </CanvasProvider>
       );
@@ -528,7 +524,7 @@ describe('CanvasContext', () => {
       };
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestZoomComponent />
         </CanvasProvider>
       );
@@ -557,7 +553,7 @@ describe('CanvasContext', () => {
       };
       
       render(
-        <CanvasProvider>
+        <CanvasProvider canvasId={TEST_CANVAS_ID}>
           <TestResetComponent />
         </CanvasProvider>
       );

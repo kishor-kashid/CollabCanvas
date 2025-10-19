@@ -217,7 +217,7 @@ describe('AuthContext', () => {
   });
   
   describe('logout', () => {
-    it('should call removeUserSession and signOut when logging out', async () => {
+    it('should call signOut when logging out', async () => {
       const mockUser = {
         uid: 'user123',
         email: 'test@example.com',
@@ -229,7 +229,6 @@ describe('AuthContext', () => {
       });
       
       authService.signOut.mockResolvedValue();
-      removeUserSession.mockResolvedValue();
       
       render(
         <AuthProvider>
@@ -245,14 +244,13 @@ describe('AuthContext', () => {
       logoutButton.click();
       
       await waitFor(() => {
-        expect(removeUserSession).toHaveBeenCalledWith('user123');
         expect(authService.signOut).toHaveBeenCalled();
       });
     });
   });
   
   describe('auth state changes', () => {
-    it('should cleanup user session when auth state changes to logged out', async () => {
+    it('should update state when auth state changes to logged out', async () => {
       let authCallback;
       const mockUser = {
         uid: 'user123',
@@ -264,8 +262,6 @@ describe('AuthContext', () => {
         callback(mockUser); // Start logged in
         return vi.fn();
       });
-      
-      removeUserSession.mockResolvedValue();
       
       render(
         <AuthProvider>
@@ -281,7 +277,7 @@ describe('AuthContext', () => {
       authCallback(null);
       
       await waitFor(() => {
-        expect(removeUserSession).toHaveBeenCalledWith('user123');
+        expect(screen.getByTestId('user-status')).toHaveTextContent('Not logged in');
       });
     });
   });
