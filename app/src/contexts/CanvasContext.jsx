@@ -23,17 +23,18 @@ import {
 import { useCanvas } from '../hooks/useCanvas';
 import { useAuth } from '../hooks/useAuth';
 import * as canvasService from '../services/canvas';
-import { cleanupStaleSessions } from '../services/cursors';
 import { deleteCommentsByShapeId } from '../services/comments';
 
 export const CanvasContext = createContext(null);
 
 /**
  * CanvasProvider component that provides canvas state and operations
+ * @param {string} canvasId - Active canvas ID
+ * @param {React.ReactNode} children - Child components
  */
-export function CanvasProvider({ children }) {
-  // Get shapes from Firestore hook
-  const { shapes: firestoreShapes, loading, error, isOnline } = useCanvas();
+export function CanvasProvider({ canvasId, children }) {
+  // Get shapes from Firestore hook (passes canvasId)
+  const { shapes: firestoreShapes, loading, error, isOnline } = useCanvas(canvasId);
   const { currentUser } = useAuth();
   
   const [shapes, setShapes] = useState([]);
@@ -68,15 +69,22 @@ export function CanvasProvider({ children }) {
   // AI Task mode
   const [aiTaskMode, setAiTaskMode] = useState(false);
   
-  // Clean up stale sessions on mount
-  useEffect(() => {
-    cleanupStaleSessions(2 * 60 * 1000); // Clean up sessions older than 2 minutes
-  }, []);
+  // Note: Stale session cleanup is handled automatically by Firebase's onDisconnect
+  // We don't need manual cleanup since users can't delete other users' sessions
+  // and each user's session is automatically removed on disconnect
   
   // Sync Firestore shapes to local state
   useEffect(() => {
     setShapes(firestoreShapes);
   }, [firestoreShapes]);
+  
+  // Reset state when canvas changes
+  useEffect(() => {
+    setSelectedId(null);
+    setUndoStack([]);
+    setRedoStack([]);
+    setClipboard(null);
+  }, [canvasId]);
   
   // Zoom and pan state
   const [scale, setScale] = useState(1);
@@ -253,7 +261,7 @@ export function CanvasProvider({ children }) {
           };
       }
       
-      await canvasService.createShape(newShape, currentUser.uid);
+      await canvasService.createShape(canvasId, newShape, currentUser.uid);
       setSelectedId(newShape.id);
       
       // Record action for undo
@@ -283,7 +291,7 @@ export function CanvasProvider({ children }) {
           oldProps[key] = shape[key];
         });
         
-        await canvasService.updateShape(id, updates, currentUser.uid);
+        await canvasService.updateShape(canvasId, id, updates, currentUser.uid);
         
         // Record action for undo
         recordAction({
@@ -296,7 +304,7 @@ export function CanvasProvider({ children }) {
           timestamp: Date.now(),
         });
       } else {
-        await canvasService.updateShape(id, updates, currentUser.uid);
+        await canvasService.updateShape(canvasId, id, updates, currentUser.uid);
       }
     } catch (error) {
       console.error('Error updating shape:', error);
@@ -319,13 +327,13 @@ export function CanvasProvider({ children }) {
       if (shape) {
         // Delete associated comments first
         try {
-          await deleteCommentsByShapeId(id);
+          await deleteCommentsByShapeId(canvasId, id);
         } catch (error) {
           console.warn('Failed to delete comments for shape:', error);
           // Continue with shape deletion even if comment deletion fails
         }
         
-        await canvasService.deleteShape(id);
+        await canvasService.deleteShape(canvasId, id);
         
         // Record action for undo
         recordAction({
@@ -341,12 +349,12 @@ export function CanvasProvider({ children }) {
       } else {
         // Delete comments even if shape not found locally
         try {
-          await deleteCommentsByShapeId(id);
+          await deleteCommentsByShapeId(canvasId, id);
         } catch (error) {
           console.warn('Failed to delete comments for shape:', error);
         }
         
-        await canvasService.deleteShape(id);
+        await canvasService.deleteShape(canvasId, id);
         if (selectedId === id) {
           setSelectedId(null);
         }
@@ -371,7 +379,7 @@ export function CanvasProvider({ children }) {
     if (!currentUser) return [];
     
     try {
-      const shapeIds = await canvasService.createShapesBatch(shapesData, currentUser.uid);
+      const shapeIds = await canvasService.createShapesBatch(canvasId, shapesData, currentUser.uid);
       
       // Record action for undo (as a batch of creates)
       if (shapesData.length > 0) {
@@ -412,13 +420,13 @@ export function CanvasProvider({ children }) {
       
       // Delete all associated comments first (in parallel)
       try {
-        await Promise.all(shapeIds.map(id => deleteCommentsByShapeId(id)));
+        await Promise.all(shapeIds.map(id => deleteCommentsByShapeId(canvasId, id)));
       } catch (error) {
         console.warn('Failed to delete some comments:', error);
         // Continue with shape deletion even if some comment deletions fail
       }
       
-      const deletedCount = await canvasService.deleteShapesBatch(shapeIds);
+      const deletedCount = await canvasService.deleteShapesBatch(canvasId, shapeIds);
       
       // Record action for undo
       if (shapesToDelete.length > 0) {
@@ -469,7 +477,7 @@ export function CanvasProvider({ children }) {
         return null;
       }).filter(Boolean);
       
-      const updatedCount = await canvasService.updateShapesBatch(updates, currentUser.uid);
+      const updatedCount = await canvasService.updateShapesBatch(canvasId, updates, currentUser.uid);
       
       // Record action for undo
       if (updateRecords.length > 0) {
@@ -502,7 +510,7 @@ export function CanvasProvider({ children }) {
     if (!currentUser) return false;
     
     try {
-      const success = await canvasService.lockShape(id, currentUser.uid);
+      const success = await canvasService.lockShape(canvasId, id, currentUser.uid);
       return success;
     } catch (error) {
       console.error('Error locking shape:', error);
@@ -515,7 +523,7 @@ export function CanvasProvider({ children }) {
     if (!currentUser) return;
     
     try {
-      await canvasService.unlockShape(id, currentUser.uid);
+      await canvasService.unlockShape(canvasId, id, currentUser.uid);
     } catch (error) {
       console.error('Error unlocking shape:', error);
     }
@@ -526,7 +534,7 @@ export function CanvasProvider({ children }) {
     if (!currentUser) return;
     
     try {
-      await canvasService.bringToFront(id);
+      await canvasService.bringToFront(canvasId, id);
     } catch (error) {
       console.error('Error bringing shape to front:', error);
     }
@@ -536,7 +544,7 @@ export function CanvasProvider({ children }) {
     if (!currentUser) return;
     
     try {
-      await canvasService.sendToBack(id);
+      await canvasService.sendToBack(canvasId, id);
     } catch (error) {
       console.error('Error sending shape to back:', error);
     }
@@ -546,7 +554,7 @@ export function CanvasProvider({ children }) {
     if (!currentUser) return;
     
     try {
-      await canvasService.bringForward(id);
+      await canvasService.bringForward(canvasId, id);
     } catch (error) {
       console.error('Error bringing shape forward:', error);
     }
@@ -556,7 +564,7 @@ export function CanvasProvider({ children }) {
     if (!currentUser) return;
     
     try {
-      await canvasService.sendBackward(id);
+      await canvasService.sendBackward(canvasId, id);
     } catch (error) {
       console.error('Error sending shape backward:', error);
     }
@@ -567,7 +575,7 @@ export function CanvasProvider({ children }) {
     if (!currentUser) return;
     
     try {
-      await canvasService.reorderShapes(newShapesOrder);
+      await canvasService.reorderShapes(canvasId, newShapesOrder);
     } catch (error) {
       console.error('Error reordering shapes:', error);
     }
@@ -581,7 +589,7 @@ export function CanvasProvider({ children }) {
       const shape = shapes.find(s => s.id === id);
       if (!shape) return;
       
-      await canvasService.toggleShapeVisibility(id, !shape.visible);
+      await canvasService.toggleShapeVisibility(canvasId, id, !shape.visible);
     } catch (error) {
       console.error('Error toggling visibility:', error);
     }
@@ -595,7 +603,7 @@ export function CanvasProvider({ children }) {
       const shape = shapes.find(s => s.id === id);
       if (!shape) return;
       
-      await canvasService.toggleLayerLock(id, !shape.layerLocked, currentUser.uid);
+      await canvasService.toggleLayerLock(canvasId, id, !shape.layerLocked, currentUser.uid);
     } catch (error) {
       console.error('Error toggling layer lock:', error);
     }
@@ -747,21 +755,21 @@ export function CanvasProvider({ children }) {
       case 'create':
         // Delete the created shape(s)
         for (const shapeData of action.shapes) {
-          await canvasService.deleteShape(shapeData.id);
+          await canvasService.deleteShape(canvasId, shapeData.id);
         }
         break;
       
       case 'delete':
         // Recreate the deleted shape(s)
         for (const shapeData of action.shapes) {
-          await canvasService.createShape(shapeData, currentUser.uid);
+          await canvasService.createShape(canvasId, shapeData, currentUser.uid);
         }
         break;
       
       case 'update':
         // Restore old properties
         for (const update of action.updates) {
-          await canvasService.updateShape(update.id, update.oldProps, currentUser.uid);
+          await canvasService.updateShape(canvasId, update.id, update.oldProps, currentUser.uid);
         }
         break;
       
@@ -778,21 +786,21 @@ export function CanvasProvider({ children }) {
       case 'create':
         // Recreate the shape(s)
         for (const shapeData of action.shapes) {
-          await canvasService.createShape(shapeData, currentUser.uid);
+          await canvasService.createShape(canvasId, shapeData, currentUser.uid);
         }
         break;
       
       case 'delete':
         // Delete the shape(s) again
         for (const shapeData of action.shapes) {
-          await canvasService.deleteShape(shapeData.id);
+          await canvasService.deleteShape(canvasId, shapeData.id);
         }
         break;
       
       case 'update':
         // Reapply new properties
         for (const update of action.updates) {
-          await canvasService.updateShape(update.id, update.newProps, currentUser.uid);
+          await canvasService.updateShape(canvasId, update.id, update.newProps, currentUser.uid);
         }
         break;
       
@@ -873,7 +881,7 @@ export function CanvasProvider({ children }) {
         y: clipboard.y + PASTE_OFFSET,
       };
       
-      await canvasService.createShape(newShape, currentUser.uid);
+      await canvasService.createShape(canvasId, newShape, currentUser.uid);
       setSelectedId(newShape.id); // Auto-select pasted shape
       
       // Record action for undo
@@ -939,7 +947,7 @@ export function CanvasProvider({ children }) {
         ...(shape.fontStyle && { fontStyle: shape.fontStyle }),
       };
       
-      await canvasService.createShape(newShape, currentUser.uid);
+      await canvasService.createShape(canvasId, newShape, currentUser.uid);
       setSelectedId(newShape.id); // Auto-select duplicated shape
       
       // Record action for undo
@@ -959,6 +967,7 @@ export function CanvasProvider({ children }) {
   // ============= END COPY/PASTE SYSTEM =============
   
   const value = {
+    canvasId,
     shapes,
     selectedId,
     stageRef,

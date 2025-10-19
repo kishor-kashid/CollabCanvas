@@ -1,5 +1,6 @@
 // TopToolbar.jsx - Horizontal toolbar at the top of canvas
 import { useContext, useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CanvasContext } from '../../contexts/CanvasContext';
 import { SHAPE_TYPES, CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
 import ColorPicker from './ColorPicker';
@@ -9,7 +10,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { deleteAITasksByStatus } from '../../services/aiTasks';
 
 export default function TopToolbar() {
+  const navigate = useNavigate();
   const {
+    canvasId,
     scale,
     position,
     zoomIn,
@@ -37,11 +40,11 @@ export default function TopToolbar() {
   const colorButtonRef = useRef(null);
   
   // Get unresolved comment count
-  const { unresolvedCount } = useComments();
+  const { unresolvedCount } = useComments(canvasId);
   
   // Get AI tasks count
   const { currentUser } = useAuth();
-  const { pendingCount, completedCount } = useAITasks(currentUser?.uid);
+  const { pendingCount, completedCount } = useAITasks(canvasId, currentUser?.uid);
   
   // Update zoom input when scale changes
   useEffect(() => {
@@ -107,6 +110,18 @@ export default function TopToolbar() {
   
   return (
     <>
+      {/* Back to Dashboard Button */}
+      <button
+        onClick={() => navigate('/dashboard')}
+        className="fixed top-24 left-4 z-30 flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-lg hover:bg-gray-50 transition-colors"
+        title="Back to Dashboard"
+      >
+        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        <span className="text-sm font-medium text-gray-700">Dashboard</span>
+      </button>
+      
       <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-30 bg-white border border-gray-200 rounded-lg shadow-lg">
         <div className="flex items-start px-4 py-3 gap-6">
           {/* Left Section - Create Tools */}
@@ -260,7 +275,7 @@ export default function TopToolbar() {
                   onClick={async () => {
                     if (window.confirm(`Delete ${completedCount} completed task(s)?`)) {
                       try {
-                        await deleteAITasksByStatus(currentUser?.uid, 'completed');
+                        await deleteAITasksByStatus(canvasId, currentUser?.uid, 'completed');
                       } catch (error) {
                         console.error('Failed to delete completed tasks:', error);
                         alert('Failed to delete completed tasks. Please try again.');

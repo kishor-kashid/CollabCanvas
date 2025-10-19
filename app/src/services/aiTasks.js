@@ -13,24 +13,28 @@ import {
   orderBy, 
   onSnapshot 
 } from 'firebase/firestore';
-import { CANVAS_ID } from '../utils/constants';
 
 const AI_TASKS_COLLECTION = 'ai_tasks';
 
 /**
  * Create a new AI task
+ * @param {string} canvasId - Canvas ID
  * @param {Object} taskData - Task data
  * @param {Object} user - Current user object
  * @returns {string} Task ID
  */
-export async function createAITask(taskData, user) {
+export async function createAITask(canvasId, taskData, user) {
   try {
+    if (!canvasId) {
+      throw new Error('Canvas ID is required');
+    }
+    
     const newTask = {
       ...taskData,
       authorId: user.uid,
       authorName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
       authorEmail: user.email,
-      canvasId: CANVAS_ID,
+      canvasId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       status: 'pending', // 'pending', 'completed', 'failed'
@@ -103,15 +107,20 @@ export async function deleteAITask(taskId) {
 
 /**
  * Delete all AI tasks by status
+ * @param {string} canvasId - Canvas ID
  * @param {string} userId - User ID
  * @param {string} status - Status to delete
  * @returns {Promise<number>} Number of tasks deleted
  */
-export async function deleteAITasksByStatus(userId, status = 'completed') {
+export async function deleteAITasksByStatus(canvasId, userId, status = 'completed') {
   try {
+    if (!canvasId) {
+      throw new Error('Canvas ID is required');
+    }
+    
     const q = query(
       collection(db, AI_TASKS_COLLECTION),
-      where('canvasId', '==', CANVAS_ID),
+      where('canvasId', '==', canvasId),
       where('authorId', '==', userId),
       where('status', '==', status)
     );
@@ -133,15 +142,20 @@ export async function deleteAITasksByStatus(userId, status = 'completed') {
 }
 
 /**
- * Get pending AI tasks for a user
+ * Get pending AI tasks for a user on a canvas
+ * @param {string} canvasId - Canvas ID
  * @param {string} userId - User ID
  * @returns {Promise<Array>} Array of pending tasks
  */
-export async function getPendingAITasks(userId) {
+export async function getPendingAITasks(canvasId, userId) {
   try {
+    if (!canvasId) {
+      throw new Error('Canvas ID is required');
+    }
+    
     const q = query(
       collection(db, AI_TASKS_COLLECTION),
-      where('canvasId', '==', CANVAS_ID),
+      where('canvasId', '==', canvasId),
       where('authorId', '==', userId),
       where('status', '==', 'pending'),
       orderBy('priority', 'desc'),
@@ -160,20 +174,26 @@ export async function getPendingAITasks(userId) {
 }
 
 /**
- * Subscribe to AI tasks for current user
+ * Subscribe to AI tasks for a user on a canvas
+ * @param {string} canvasId - Canvas ID
  * @param {string} userId - User ID
  * @param {Function} callback - Callback function to receive tasks
  * @returns {Function} Unsubscribe function
  */
-export function subscribeToAITasks(userId, callback) {
+export function subscribeToAITasks(canvasId, userId, callback) {
   if (!userId) {
     console.warn('⚠️ Cannot subscribe to AI tasks: no userId provided');
     return () => {};
   }
   
+  if (!canvasId) {
+    console.error('Canvas ID is required for AI tasks subscription');
+    return () => {}; // Return no-op unsubscribe
+  }
+  
   const q = query(
     collection(db, AI_TASKS_COLLECTION),
-    where('canvasId', '==', CANVAS_ID),
+    where('canvasId', '==', canvasId),
     where('authorId', '==', userId),
     orderBy('createdAt', 'asc')
   );

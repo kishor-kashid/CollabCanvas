@@ -13,6 +13,7 @@ import { formatRelativeTime } from '../../utils/dateFormatting';
  * Comment thread panel component
  */
 export default function CommentThread({ 
+  canvasId,
   thread, 
   shapeId, 
   position,
@@ -32,7 +33,7 @@ export default function CommentThread({
     
     setIsSubmitting(true);
     try {
-      await createComment({
+      await createComment(canvasId, {
         text: replyText,
         shapeId,
         position,

@@ -5,27 +5,28 @@ import { subscribeToAITasks } from '../services/aiTasks';
 
 /**
  * Custom hook for managing AI tasks
+ * @param {string} canvasId - Canvas ID
  * @param {string} userId - Current user ID
  * @returns {Object} AI tasks data and utilities
  */
-export function useAITasks(userId) {
+export function useAITasks(canvasId, userId) {
   const [aiTasks, setAITasks] = useState([]);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    if (!userId) {
+    if (!userId || !canvasId) {
       setAITasks([]);
       setLoading(false);
       return;
     }
     
-    const unsubscribe = subscribeToAITasks(userId, (newTasks) => {
+    const unsubscribe = subscribeToAITasks(canvasId, userId, (newTasks) => {
       setAITasks(newTasks);
       setLoading(false);
     });
     
     return () => unsubscribe();
-  }, [userId]);
+  }, [canvasId, userId]);
   
   // Get pending tasks
   const pendingTasks = aiTasks.filter(t => t.status === 'pending');

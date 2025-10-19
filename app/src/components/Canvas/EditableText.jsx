@@ -1,10 +1,10 @@
 // EditableText Component - Text shape with double-click to edit
 
 import { Text } from 'react-konva';
-import { useState, forwardRef } from 'react';
+import { useState, forwardRef, memo } from 'react';
 import { checkEditPermissions, checkLockAcquisition } from '../../utils/editPermissions';
 
-const EditableText = forwardRef(function EditableText({
+const EditableTextComponent = forwardRef(function EditableText({
   id,
   x,
   y,
@@ -244,6 +244,29 @@ const EditableText = forwardRef(function EditableText({
       onTransformStart={onTransformStart}
       onTransformEnd={onTransformEnd}
     />
+  );
+});
+
+// Memoize to prevent unnecessary re-renders
+const EditableText = memo(EditableTextComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.id === nextProps.id &&
+    prevProps.x === nextProps.x &&
+    prevProps.y === nextProps.y &&
+    prevProps.width === nextProps.width &&
+    prevProps.height === nextProps.height &&
+    prevProps.text === nextProps.text &&
+    prevProps.fontSize === nextProps.fontSize &&
+    prevProps.fontFamily === nextProps.fontFamily &&
+    prevProps.fontStyle === nextProps.fontStyle &&
+    prevProps.fill === nextProps.fill &&
+    prevProps.rotation === nextProps.rotation &&
+    prevProps.scaleX === nextProps.scaleX &&
+    prevProps.scaleY === nextProps.scaleY &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isLocked === nextProps.isLocked &&
+    prevProps.isLayerLocked === nextProps.isLayerLocked &&
+    prevProps.lockedBy === nextProps.lockedBy
   );
 });
 

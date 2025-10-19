@@ -1,8 +1,8 @@
 {
   "rules": {
     "sessions": {
-      "global-canvas-v1": {
-        ".read": true,
+      "$canvasId": {
+        ".read": "auth != null",
         "$userId": {
           ".write": "$userId === auth.uid"
         }

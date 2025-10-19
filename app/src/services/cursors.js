@@ -2,19 +2,24 @@
 
 import { rtdb } from './firebase';
 import { ref, set, update, onValue, remove, onDisconnect, serverTimestamp } from 'firebase/database';
-
-const SESSION_PATH = 'sessions/global-canvas-v1';
+import { getSessionPath } from '../utils/constants';
 
 /**
  * Initialize user in the session (sets up onDisconnect)
+ * @param {string} canvasId - Canvas ID
  * @param {string} userId - User ID
  * @param {string} displayName - User display name
  * @param {string} color - Cursor color
  * @returns {Promise<void>}
  */
-export async function initializeUserSession(userId, displayName, color) {
+export async function initializeUserSession(canvasId, userId, displayName, color) {
   try {
-    const userRef = ref(rtdb, `${SESSION_PATH}/${userId}`);
+    if (!canvasId) {
+      throw new Error('Canvas ID is required');
+    }
+    
+    const sessionPath = getSessionPath(canvasId);
+    const userRef = ref(rtdb, `${sessionPath}/${userId}`);
     
     // Set initial user data
     await set(userRef, {
@@ -36,14 +41,20 @@ export async function initializeUserSession(userId, displayName, color) {
 
 /**
  * Update cursor position for a user
+ * @param {string} canvasId - Canvas ID
  * @param {string} userId - User ID
  * @param {number} x - Canvas X coordinate
  * @param {number} y - Canvas Y coordinate
  * @returns {Promise<void>}
  */
-export async function updateCursorPosition(userId, x, y) {
+export async function updateCursorPosition(canvasId, userId, x, y) {
   try {
-    const cursorRef = ref(rtdb, `${SESSION_PATH}/${userId}`);
+    if (!canvasId) {
+      return; // Silently ignore if no canvas
+    }
+    
+    const sessionPath = getSessionPath(canvasId);
+    const cursorRef = ref(rtdb, `${sessionPath}/${userId}`);
     
     // Use update instead of set to avoid overwriting the entire object
     // This preserves the onDisconnect handler
@@ -58,12 +69,19 @@ export async function updateCursorPosition(userId, x, y) {
 }
 
 /**
- * Subscribe to cursor updates for all users
+ * Subscribe to cursor updates for all users on a canvas
+ * @param {string} canvasId - Canvas ID
  * @param {function} callback - Callback function to handle cursor updates
  * @returns {function} Unsubscribe function
  */
-export function subscribeToCursors(callback) {
-  const cursorsRef = ref(rtdb, SESSION_PATH);
+export function subscribeToCursors(canvasId, callback) {
+  if (!canvasId) {
+    console.error('Canvas ID is required for cursor subscription');
+    return () => {}; // Return no-op unsubscribe
+  }
+  
+  const sessionPath = getSessionPath(canvasId);
+  const cursorsRef = ref(rtdb, sessionPath);
   
   const unsubscribe = onValue(cursorsRef, (snapshot) => {
     const cursors = snapshot.val() || {};
@@ -78,13 +96,23 @@ export function subscribeToCursors(callback) {
 
 /**
  * Remove user from the session (manual cleanup)
+ * ⚠️ DEPRECATED: Do not use this function directly!
+ * Session cleanup is handled automatically by Firebase onDisconnect.
+ * Calling this manually may cause permission errors.
+ * @param {string} canvasId - Canvas ID
  * @param {string} userId - User ID
  * @returns {Promise<void>}
  */
-export async function removeUserSession(userId) {
+export async function removeUserSession(canvasId, userId) {
+  console.warn('⚠️ removeUserSession called - this should be handled by onDisconnect automatically');
   try {
+    if (!canvasId) {
+      return;
+    }
+    
     console.log('🗑️ Removing user session for:', userId);
-    const userRef = ref(rtdb, `${SESSION_PATH}/${userId}`);
+    const sessionPath = getSessionPath(canvasId);
+    const userRef = ref(rtdb, `${sessionPath}/${userId}`);
     
     // Cancel any pending onDisconnect operations
     await onDisconnect(userRef).cancel();
@@ -99,13 +127,19 @@ export async function removeUserSession(userId) {
 
 /**
  * Clean up stale sessions (sessions that haven't been updated recently)
+ * @param {string} canvasId - Canvas ID
  * @param {number} maxAge - Maximum age in milliseconds (default: 5 minutes)
  * @returns {Promise<void>}
  */
-export async function cleanupStaleSessions(maxAge = 5 * 60 * 1000) {
+export async function cleanupStaleSessions(canvasId, maxAge = 5 * 60 * 1000) {
   try {
+    if (!canvasId) {
+      return;
+    }
+    
     console.log('🧹 Cleaning up stale sessions...');
-    const sessionsRef = ref(rtdb, SESSION_PATH);
+    const sessionPath = getSessionPath(canvasId);
+    const sessionsRef = ref(rtdb, sessionPath);
     
     // Get all sessions
     const { get } = await import('firebase/database');
@@ -128,7 +162,7 @@ export async function cleanupStaleSessions(maxAge = 5 * 60 * 1000) {
         // If session is older than maxAge, remove it
         if (age > maxAge) {
           console.log(`🗑️ Removing stale session for user ${userId} (age: ${Math.round(age / 1000)}s)`);
-          await remove(ref(rtdb, `${SESSION_PATH}/${userId}`));
+          await remove(ref(rtdb, `${sessionPath}/${userId}`));
           cleanedCount++;
         }
       }

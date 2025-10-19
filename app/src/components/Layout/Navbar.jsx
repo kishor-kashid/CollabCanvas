@@ -3,7 +3,7 @@
 import { useAuth } from '../../hooks/useAuth';
 import PresenceList from '../Collaboration/PresenceList';
 
-export default function Navbar() {
+export default function Navbar({ canvasId }) {
   const { currentUser, logout } = useAuth();
   
   const handleLogout = async () => {
@@ -42,11 +42,14 @@ export default function Navbar() {
           {/* User Info and Logout - Aligned with Canvas Info overlay */}
           {currentUser && (
             <div className="flex items-center space-x-4">
-              {/* Presence List - Online Users */}
-              <PresenceList />
-              
-              {/* Divider */}
-              <div className="h-8 w-px bg-gray-300"></div>
+              {/* Presence List - Only show on canvas pages */}
+              {canvasId && (
+                <>
+                  <PresenceList canvasId={canvasId} />
+                  {/* Divider */}
+                  <div className="h-8 w-px bg-gray-300"></div>
+                </>
+              )}
               
               {/* User Avatar and Name */}
               <div className="flex items-center space-x-2">

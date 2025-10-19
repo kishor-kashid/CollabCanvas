@@ -13,24 +13,28 @@ import {
   orderBy, 
   onSnapshot 
 } from 'firebase/firestore';
-import { CANVAS_ID } from '../utils/constants';
 
 const COMMENTS_COLLECTION = 'comments';
 
 /**
  * Create a new comment
+ * @param {string} canvasId - Canvas ID
  * @param {Object} commentData - Comment data
  * @param {Object} user - Current user object
  * @returns {string} Comment ID
  */
-export async function createComment(commentData, user) {
+export async function createComment(canvasId, commentData, user) {
   try {
+    if (!canvasId) {
+      throw new Error('Canvas ID is required');
+    }
+    
     const newComment = {
       ...commentData,
       authorId: user.uid,
       authorName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
       authorEmail: user.email,
-      canvasId: CANVAS_ID,
+      canvasId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       isResolved: false,
@@ -100,14 +104,19 @@ export async function deleteComment(commentId) {
 
 /**
  * Delete all comments associated with a shape
+ * @param {string} canvasId - Canvas ID
  * @param {string} shapeId - Shape ID
  * @returns {Promise<number>} Number of comments deleted
  */
-export async function deleteCommentsByShapeId(shapeId) {
+export async function deleteCommentsByShapeId(canvasId, shapeId) {
   try {
+    if (!canvasId) {
+      throw new Error('Canvas ID is required');
+    }
+    
     const q = query(
       collection(db, COMMENTS_COLLECTION),
-      where('canvasId', '==', CANVAS_ID),
+      where('canvasId', '==', canvasId),
       where('shapeId', '==', shapeId)
     );
     
@@ -129,14 +138,20 @@ export async function deleteCommentsByShapeId(shapeId) {
 }
 
 /**
- * Subscribe to comments for current canvas
+ * Subscribe to comments for a specific canvas
+ * @param {string} canvasId - Canvas ID
  * @param {Function} callback - Callback function to receive comments
  * @returns {Function} Unsubscribe function
  */
-export function subscribeToComments(callback) {
+export function subscribeToComments(canvasId, callback) {
+  if (!canvasId) {
+    console.error('Canvas ID is required for subscription');
+    return () => {}; // Return no-op unsubscribe
+  }
+  
   const q = query(
     collection(db, COMMENTS_COLLECTION),
-    where('canvasId', '==', CANVAS_ID),
+    where('canvasId', '==', canvasId),
     orderBy('createdAt', 'asc')
   );
   

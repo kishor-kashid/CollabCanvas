@@ -8,15 +8,16 @@ import { useAuth } from './useAuth';
  * Custom hook for user presence management
  * Note: This hook only subscribes to presence data.
  * The actual user initialization is handled by useCursors hook to avoid conflicts.
+ * @param {string} canvasId - Canvas ID
  * @returns {object} Online users array
  */
-export function usePresence() {
+export function usePresence(canvasId) {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const { currentUser } = useAuth();
   
   useEffect(() => {
-    if (!currentUser) {
-      console.log('❌ usePresence: No currentUser');
+    if (!currentUser || !canvasId) {
+      console.log('❌ usePresence: No currentUser or canvasId');
       setOnlineUsers([]);
       return;
     }
@@ -24,7 +25,7 @@ export function usePresence() {
     console.log('✅ usePresence: Subscribing to presence updates');
     
     // Subscribe to presence updates (shares the same data as cursors)
-    const unsubscribe = subscribeToPresence((presenceData) => {
+    const unsubscribe = subscribeToPresence(canvasId, (presenceData) => {
       const users = Object.entries(presenceData).map(([userId, userData]) => ({
         userId,
         ...userData,
@@ -37,7 +38,7 @@ export function usePresence() {
       console.log('🧹 Unsubscribing from presence updates');
       unsubscribe();
     };
-  }, [currentUser]);
+  }, [canvasId, currentUser]);
   
   return {
     onlineUsers,

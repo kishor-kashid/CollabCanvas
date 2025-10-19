@@ -1,11 +1,13 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { CanvasManagementProvider } from './contexts/CanvasManagementContext';
 import { CanvasProvider } from './contexts/CanvasContext';
 import { useAuth } from './hooks/useAuth';
 import Login from './components/Auth/Login';
 import Signup from './components/Auth/Signup';
 import Navbar from './components/Layout/Navbar';
 import Canvas from './components/Canvas/Canvas';
+import Dashboard from './components/Dashboard/Dashboard';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -20,10 +22,16 @@ function ProtectedRoute({ children }) {
 
 // Canvas Page - Main workspace with collaborative canvas
 function CanvasPage() {
+  const { canvasId } = useParams();
+  
+  if (!canvasId) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
   return (
-    <CanvasProvider>
+    <CanvasProvider canvasId={canvasId}>
       <div className="h-screen flex flex-col overflow-hidden">
-        <Navbar />
+        <Navbar canvasId={canvasId} />
         <div className="flex-1 relative">
           <Canvas />
         </div>
@@ -42,7 +50,16 @@ function AppContent() {
       
       {/* Protected Routes */}
       <Route
-        path="/canvas"
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/canvas/:canvasId"
         element={
           <ProtectedRoute>
             <CanvasPage />
@@ -50,7 +67,7 @@ function AppContent() {
         }
       />
       
-      {/* Default Route - Redirect to login if not authenticated, canvas if authenticated */}
+      {/* Default Route - Redirect to login if not authenticated, dashboard if authenticated */}
       <Route path="/" element={<HomeRedirect />} />
       
       {/* Catch all - redirect to home */}
@@ -62,7 +79,7 @@ function AppContent() {
 // Home Redirect Component
 function HomeRedirect() {
   const { currentUser } = useAuth();
-  return <Navigate to={currentUser ? '/canvas' : '/login'} replace />;
+  return <Navigate to={currentUser ? '/dashboard' : '/login'} replace />;
 }
 
 // Root App with Providers
@@ -70,7 +87,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <CanvasManagementProvider>
+          <AppContent />
+        </CanvasManagementProvider>
       </AuthProvider>
     </Router>
   );

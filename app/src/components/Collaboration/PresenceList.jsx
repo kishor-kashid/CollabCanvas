@@ -3,8 +3,8 @@ import { usePresence } from '../../hooks/usePresence';
 import UserPresence from './UserPresence';
 import { useAuth } from '../../hooks/useAuth';
 
-export default function PresenceList() {
-  const { onlineUsers } = usePresence();
+export default function PresenceList({ canvasId }) {
+  const { onlineUsers } = usePresence(canvasId);
   const { currentUser } = useAuth();
   
   // Filter out current user and get count

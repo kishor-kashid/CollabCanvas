@@ -8,6 +8,7 @@ import { createComment } from '../../services/comments';
  * Dialog for creating a new comment
  */
 export default function NewCommentDialog({ 
+  canvasId,
   position, 
   shapeId,
   onClose, 
@@ -23,7 +24,7 @@ export default function NewCommentDialog({
     
     setIsSubmitting(true);
     try {
-      const commentId = await createComment({
+      const commentId = await createComment(canvasId, {
         text: commentText,
         shapeId: shapeId || null,
         position: position || null,

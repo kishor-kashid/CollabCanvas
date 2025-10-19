@@ -20,17 +20,26 @@ if (!persistenceEnabled) {
 
 /**
  * Custom hook for canvas operations and real-time synchronization
+ * @param {string} canvasId - Canvas ID to subscribe to
  * @returns {object} Canvas state and operations
  */
-export function useCanvas() {
+export function useCanvas(canvasId) {
   const [shapes, setShapes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   useEffect(() => {
+    if (!canvasId) {
+      setShapes([]);
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    
     // Subscribe to real-time shape updates
-    const unsubscribe = subscribeToShapes((updatedShapes) => {
+    const unsubscribe = subscribeToShapes(canvasId, (updatedShapes) => {
       setShapes(updatedShapes);
       setLoading(false);
       setError(null);
@@ -38,7 +47,7 @@ export function useCanvas() {
     
     // Auto-release stale locks every 10 seconds
     const lockCleanupInterval = setInterval(() => {
-      releaseStaleLocks().catch(console.error);
+      releaseStaleLocks(canvasId).catch(console.error);
     }, 10000);
     
     // Monitor online/offline status
@@ -54,7 +63,7 @@ export function useCanvas() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [canvasId]);
   
   return {
     shapes,

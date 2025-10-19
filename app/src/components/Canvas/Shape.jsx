@@ -1,12 +1,12 @@
 // Shape Component - Renders different shape types on the canvas
 
 import { Transformer } from 'react-konva';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, memo } from 'react';
 import { SHAPE_TYPES } from '../../utils/constants';
 import EditableText from './EditableText';
 import EditableShape from './EditableShape';
 
-export default function Shape({ 
+function Shape({ 
   id,
   type,
   x, 
@@ -262,4 +262,38 @@ export default function Shape({
     </>
   );
 }
+
+// Memoize Shape component to prevent unnecessary re-renders
+// Custom comparison function - only re-render if this specific shape's props changed
+export default memo(Shape, (prevProps, nextProps) => {
+  // Return true if props are equal (skip re-render), false if different (re-render)
+  return (
+    prevProps.id === nextProps.id &&
+    prevProps.type === nextProps.type &&
+    prevProps.x === nextProps.x &&
+    prevProps.y === nextProps.y &&
+    prevProps.width === nextProps.width &&
+    prevProps.height === nextProps.height &&
+    prevProps.radius === nextProps.radius &&
+    prevProps.text === nextProps.text &&
+    prevProps.fontSize === nextProps.fontSize &&
+    prevProps.fontFamily === nextProps.fontFamily &&
+    prevProps.fontStyle === nextProps.fontStyle &&
+    prevProps.fill === nextProps.fill &&
+    prevProps.rotation === nextProps.rotation &&
+    prevProps.scaleX === nextProps.scaleX &&
+    prevProps.scaleY === nextProps.scaleY &&
+    prevProps.opacity === nextProps.opacity &&
+    prevProps.blendMode === nextProps.blendMode &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isLocked === nextProps.isLocked &&
+    prevProps.isLayerLocked === nextProps.isLayerLocked &&
+    prevProps.lockedBy === nextProps.lockedBy &&
+    prevProps.isInEditMode === nextProps.isInEditMode &&
+    prevProps.canvasWidth === nextProps.canvasWidth &&
+    prevProps.canvasHeight === nextProps.canvasHeight
+    // Note: We don't compare callback functions (onSelect, onDragStart, etc.)
+    // as they're typically recreated on each render but are functionally equivalent
+  );
+});
 

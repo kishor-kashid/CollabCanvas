@@ -1,9 +1,10 @@
 // EditableShape.jsx - Wrapper for rectangles/circles/triangles with color editing on double-click
 import { Rect, Circle, Line } from 'react-konva';
+import { memo } from 'react';
 import { SHAPE_TYPES } from '../../utils/constants';
 import { checkEditPermissions, checkLockAcquisition } from '../../utils/editPermissions';
 
-export default function EditableShape({ 
+function EditableShape({ 
   id,
   type,
   x, 
@@ -83,4 +84,25 @@ export default function EditableShape({
   
   return null;
 }
+
+// Memoize to prevent unnecessary re-renders
+export default memo(EditableShape, (prevProps, nextProps) => {
+  return (
+    prevProps.id === nextProps.id &&
+    prevProps.type === nextProps.type &&
+    prevProps.x === nextProps.x &&
+    prevProps.y === nextProps.y &&
+    prevProps.width === nextProps.width &&
+    prevProps.height === nextProps.height &&
+    prevProps.radius === nextProps.radius &&
+    prevProps.fill === nextProps.fill &&
+    prevProps.rotation === nextProps.rotation &&
+    prevProps.scaleX === nextProps.scaleX &&
+    prevProps.scaleY === nextProps.scaleY &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isLocked === nextProps.isLocked &&
+    prevProps.isLayerLocked === nextProps.isLayerLocked &&
+    prevProps.lockedBy === nextProps.lockedBy
+  );
+});
 

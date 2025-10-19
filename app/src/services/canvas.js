@@ -9,18 +9,23 @@ import {
   getDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { CANVAS_ID, CANVAS_COLLECTION, LOCK_TIMEOUT_MS } from '../utils/constants';
+import { CANVAS_COLLECTION, LOCK_TIMEOUT_MS } from '../utils/constants';
 
 /**
  * Initialize canvas document if it doesn't exist
+ * @param {string} canvasId - Canvas ID to initialize
  */
-async function initializeCanvas() {
-  const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+async function initializeCanvas(canvasId) {
+  if (!canvasId) {
+    throw new Error('Canvas ID is required');
+  }
+  
+  const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
   const canvasDoc = await getDoc(canvasRef);
   
   if (!canvasDoc.exists()) {
     await setDoc(canvasRef, {
-      canvasId: CANVAS_ID,
+      canvasId,
       shapes: [],
       lastUpdated: serverTimestamp(),
     });
@@ -29,14 +34,20 @@ async function initializeCanvas() {
 
 /**
  * Subscribe to real-time shape updates from Firestore
+ * @param {string} canvasId - Canvas ID to subscribe to
  * @param {function} callback - Callback function to handle shape updates
  * @returns {function} Unsubscribe function
  */
-export function subscribeToShapes(callback) {
-  const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+export function subscribeToShapes(canvasId, callback) {
+  if (!canvasId) {
+    console.error('Canvas ID is required for subscription');
+    return () => {}; // Return no-op unsubscribe
+  }
+  
+  const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
   
   // Initialize canvas if needed
-  initializeCanvas().catch(console.error);
+  initializeCanvas(canvasId).catch(console.error);
   
   const unsubscribe = onSnapshot(canvasRef, (docSnapshot) => {
     if (docSnapshot.exists()) {
@@ -55,10 +66,15 @@ export function subscribeToShapes(callback) {
 
 /**
  * Get current shapes from Firestore
+ * @param {string} canvasId - Canvas ID
  * @returns {Promise<Array>} Array of shapes
  */
-async function getCurrentShapes() {
-  const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+async function getCurrentShapes(canvasId) {
+  if (!canvasId) {
+    throw new Error('Canvas ID is required');
+  }
+  
+  const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
   const canvasDoc = await getDoc(canvasRef);
   
   if (canvasDoc.exists()) {
@@ -70,14 +86,15 @@ async function getCurrentShapes() {
 
 /**
  * Create a new shape on the canvas
+ * @param {string} canvasId - Canvas ID
  * @param {object} shapeData - Shape properties (id, type, x, y, width, height, fill)
  * @param {string} userId - ID of user creating the shape
  * @returns {Promise<void>}
  */
-export async function createShape(shapeData, userId) {
+export async function createShape(canvasId, shapeData, userId) {
   try {
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
-    const shapes = await getCurrentShapes();
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
+    const shapes = await getCurrentShapes(canvasId);
     
     const newShape = {
       ...shapeData,
@@ -103,14 +120,15 @@ export async function createShape(shapeData, userId) {
 
 /**
  * Create multiple shapes in a single batch operation (optimized for bulk creation)
+ * @param {string} canvasId - Canvas ID
  * @param {Array} shapesData - Array of shape objects to create
  * @param {string} userId - ID of user creating the shapes
  * @returns {Promise<Array>} Array of created shape IDs
  */
-export async function createShapesBatch(shapesData, userId) {
+export async function createShapesBatch(canvasId, shapesData, userId) {
   try {
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
-    const currentShapes = await getCurrentShapes();
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
+    const currentShapes = await getCurrentShapes(canvasId);
     
     const timestamp = Date.now();
     const newShapes = shapesData.map(shapeData => ({
@@ -140,15 +158,16 @@ export async function createShapesBatch(shapesData, userId) {
 
 /**
  * Update an existing shape
+ * @param {string} canvasId - Canvas ID
  * @param {string} shapeId - Shape ID to update
  * @param {object} updates - Properties to update
  * @param {string} userId - ID of user making the update
  * @returns {Promise<void>}
  */
-export async function updateShape(shapeId, updates, userId) {
+export async function updateShape(canvasId, shapeId, updates, userId) {
   try {
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
-    const shapes = await getCurrentShapes();
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
+    const shapes = await getCurrentShapes(canvasId);
     
     const updatedShapes = shapes.map(shape => {
       if (shape.id === shapeId) {
@@ -174,14 +193,15 @@ export async function updateShape(shapeId, updates, userId) {
 
 /**
  * Update multiple shapes in a single batch operation (optimized for bulk updates)
+ * @param {string} canvasId - Canvas ID
  * @param {Array} updates - Array of {id, updates} objects
  * @param {string} userId - ID of user making updates
  * @returns {Promise<number>} Number of shapes updated
  */
-export async function updateShapesBatch(updates, userId) {
+export async function updateShapesBatch(canvasId, updates, userId) {
   try {
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
-    const currentShapes = await getCurrentShapes();
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
+    const currentShapes = await getCurrentShapes(canvasId);
     
     const timestamp = Date.now();
     
@@ -216,13 +236,14 @@ export async function updateShapesBatch(updates, userId) {
 
 /**
  * Delete a shape from the canvas
+ * @param {string} canvasId - Canvas ID
  * @param {string} shapeId - Shape ID to delete
  * @returns {Promise<void>}
  */
-export async function deleteShape(shapeId) {
+export async function deleteShape(canvasId, shapeId) {
   try {
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
-    const shapes = await getCurrentShapes();
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
+    const shapes = await getCurrentShapes(canvasId);
     
     const filteredShapes = shapes.filter(shape => shape.id !== shapeId);
     
@@ -238,13 +259,14 @@ export async function deleteShape(shapeId) {
 
 /**
  * Delete multiple shapes in a single batch operation (optimized for bulk deletion)
+ * @param {string} canvasId - Canvas ID
  * @param {Array<string>} shapeIds - Array of shape IDs to delete
  * @returns {Promise<number>} Number of shapes deleted
  */
-export async function deleteShapesBatch(shapeIds) {
+export async function deleteShapesBatch(canvasId, shapeIds) {
   try {
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
-    const currentShapes = await getCurrentShapes();
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
+    const currentShapes = await getCurrentShapes(canvasId);
     
     // Filter out all shapes to delete in one operation
     const remainingShapes = currentShapes.filter(
@@ -267,14 +289,15 @@ export async function deleteShapesBatch(shapeIds) {
 
 /**
  * Lock a shape for editing
+ * @param {string} canvasId - Canvas ID
  * @param {string} shapeId - Shape ID to lock
  * @param {string} userId - ID of user locking the shape
  * @returns {Promise<boolean>} True if lock acquired, false if already locked
  */
-export async function lockShape(shapeId, userId) {
+export async function lockShape(canvasId, shapeId, userId) {
   try {
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
-    const shapes = await getCurrentShapes();
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
+    const shapes = await getCurrentShapes(canvasId);
     
     const shape = shapes.find(s => s.id === shapeId);
     if (!shape) {
@@ -316,14 +339,15 @@ export async function lockShape(shapeId, userId) {
 
 /**
  * Unlock a shape
+ * @param {string} canvasId - Canvas ID
  * @param {string} shapeId - Shape ID to unlock
  * @param {string} userId - ID of user unlocking (must own the lock)
  * @returns {Promise<void>}
  */
-export async function unlockShape(shapeId, userId) {
+export async function unlockShape(canvasId, shapeId, userId) {
   try {
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
-    const shapes = await getCurrentShapes();
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
+    const shapes = await getCurrentShapes(canvasId);
     
     const updatedShapes = shapes.map(s => {
       if (s.id === shapeId && (s.lockedBy === userId || !userId)) {
@@ -349,12 +373,13 @@ export async function unlockShape(shapeId, userId) {
 
 /**
  * Auto-release stale locks (called periodically)
+ * @param {string} canvasId - Canvas ID
  * @returns {Promise<void>}
  */
-export async function releaseStaleLocks() {
+export async function releaseStaleLocks(canvasId) {
   try {
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
-    const shapes = await getCurrentShapes();
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
+    const shapes = await getCurrentShapes(canvasId);
     
     const now = Date.now();
     let hasChanges = false;
@@ -394,12 +419,13 @@ export async function releaseStaleLocks() {
  * Reorder shapes array (for z-index management)
  * Lower array index = back/bottom layer
  * Higher array index = front/top layer
+ * @param {string} canvasId - Canvas ID
  * @param {Array} newShapesOrder - New array of shapes in desired order
  * @returns {Promise<void>}
  */
-export async function reorderShapes(newShapesOrder) {
+export async function reorderShapes(canvasId, newShapesOrder) {
   try {
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
     
     await updateDoc(canvasRef, {
       shapes: newShapesOrder,
@@ -414,12 +440,13 @@ export async function reorderShapes(newShapesOrder) {
 /**
  * Bring shape to front (highest z-index)
  * Moves the shape to the end of the array so it renders last (on top)
+ * @param {string} canvasId - Canvas ID
  * @param {string} shapeId - Shape ID to bring to front
  * @returns {Promise<void>}
  */
-export async function bringToFront(shapeId) {
+export async function bringToFront(canvasId, shapeId) {
   try {
-    const shapes = await getCurrentShapes();
+    const shapes = await getCurrentShapes(canvasId);
     const shapeIndex = shapes.findIndex(s => s.id === shapeId);
     
     if (shapeIndex === -1) {
@@ -436,7 +463,7 @@ export async function bringToFront(shapeId) {
     const newShapes = shapes.filter((_, i) => i !== shapeIndex);
     newShapes.push(shape);
     
-    await reorderShapes(newShapes);
+    await reorderShapes(canvasId, newShapes);
   } catch (error) {
     console.error('Error bringing to front:', error);
     throw error;
@@ -446,12 +473,13 @@ export async function bringToFront(shapeId) {
 /**
  * Send shape to back (lowest z-index)
  * Moves the shape to the start of the array so it renders first (behind all others)
+ * @param {string} canvasId - Canvas ID
  * @param {string} shapeId - Shape ID to send to back
  * @returns {Promise<void>}
  */
-export async function sendToBack(shapeId) {
+export async function sendToBack(canvasId, shapeId) {
   try {
-    const shapes = await getCurrentShapes();
+    const shapes = await getCurrentShapes(canvasId);
     const shapeIndex = shapes.findIndex(s => s.id === shapeId);
     
     if (shapeIndex === -1) {
@@ -468,7 +496,7 @@ export async function sendToBack(shapeId) {
     const newShapes = shapes.filter((_, i) => i !== shapeIndex);
     newShapes.unshift(shape);
     
-    await reorderShapes(newShapes);
+    await reorderShapes(canvasId, newShapes);
   } catch (error) {
     console.error('Error sending to back:', error);
     throw error;
@@ -478,12 +506,13 @@ export async function sendToBack(shapeId) {
 /**
  * Bring shape forward one level
  * Swaps with the shape above it in the z-order
+ * @param {string} canvasId - Canvas ID
  * @param {string} shapeId - Shape ID to bring forward
  * @returns {Promise<void>}
  */
-export async function bringForward(shapeId) {
+export async function bringForward(canvasId, shapeId) {
   try {
-    const shapes = await getCurrentShapes();
+    const shapes = await getCurrentShapes(canvasId);
     const shapeIndex = shapes.findIndex(s => s.id === shapeId);
     
     if (shapeIndex === -1) {
@@ -500,7 +529,7 @@ export async function bringForward(shapeId) {
     [newShapes[shapeIndex], newShapes[shapeIndex + 1]] = 
       [newShapes[shapeIndex + 1], newShapes[shapeIndex]];
     
-    await reorderShapes(newShapes);
+    await reorderShapes(canvasId, newShapes);
   } catch (error) {
     console.error('Error bringing forward:', error);
     throw error;
@@ -510,12 +539,13 @@ export async function bringForward(shapeId) {
 /**
  * Send shape backward one level
  * Swaps with the shape below it in the z-order
+ * @param {string} canvasId - Canvas ID
  * @param {string} shapeId - Shape ID to send backward
  * @returns {Promise<void>}
  */
-export async function sendBackward(shapeId) {
+export async function sendBackward(canvasId, shapeId) {
   try {
-    const shapes = await getCurrentShapes();
+    const shapes = await getCurrentShapes(canvasId);
     const shapeIndex = shapes.findIndex(s => s.id === shapeId);
     
     if (shapeIndex === -1) {
@@ -532,7 +562,7 @@ export async function sendBackward(shapeId) {
     [newShapes[shapeIndex], newShapes[shapeIndex - 1]] = 
       [newShapes[shapeIndex - 1], newShapes[shapeIndex]];
     
-    await reorderShapes(newShapes);
+    await reorderShapes(canvasId, newShapes);
   } catch (error) {
     console.error('Error sending backward:', error);
     throw error;
@@ -545,20 +575,21 @@ export async function sendBackward(shapeId) {
 
 /**
  * Toggle visibility of a shape
+ * @param {string} canvasId - Canvas ID
  * @param {string} shapeId - Shape ID to toggle
  * @param {boolean} visible - New visibility state
  * @returns {Promise<void>}
  */
-export async function toggleShapeVisibility(shapeId, visible) {
+export async function toggleShapeVisibility(canvasId, shapeId, visible) {
   try {
-    const shapes = await getCurrentShapes();
+    const shapes = await getCurrentShapes(canvasId);
     const updatedShapes = shapes.map(shape =>
       shape.id === shapeId
         ? { ...shape, visible, lastModifiedAt: Date.now() }
         : shape
     );
     
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
     await updateDoc(canvasRef, {
       shapes: updatedShapes,
       lastUpdated: serverTimestamp(),
@@ -571,14 +602,15 @@ export async function toggleShapeVisibility(shapeId, visible) {
 
 /**
  * Toggle layer lock state of a shape (prevents all editing)
+ * @param {string} canvasId - Canvas ID
  * @param {string} shapeId - Shape ID to toggle
  * @param {boolean} locked - New lock state
  * @param {string} userId - User making the change
  * @returns {Promise<void>}
  */
-export async function toggleLayerLock(shapeId, locked, userId) {
+export async function toggleLayerLock(canvasId, shapeId, locked, userId) {
   try {
-    const shapes = await getCurrentShapes();
+    const shapes = await getCurrentShapes(canvasId);
     const updatedShapes = shapes.map(shape =>
       shape.id === shapeId
         ? { 
@@ -590,7 +622,7 @@ export async function toggleLayerLock(shapeId, locked, userId) {
         : shape
     );
     
-    const canvasRef = doc(db, CANVAS_COLLECTION, CANVAS_ID);
+    const canvasRef = doc(db, CANVAS_COLLECTION, canvasId);
     await updateDoc(canvasRef, {
       shapes: updatedShapes,
       lastUpdated: serverTimestamp(),

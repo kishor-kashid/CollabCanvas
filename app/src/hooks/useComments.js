@@ -5,20 +5,27 @@ import { subscribeToComments } from '../services/comments';
 
 /**
  * Custom hook for managing comments
+ * @param {string} canvasId - Canvas ID
  * @returns {Object} Comments data and utilities
  */
-export function useComments() {
+export function useComments(canvasId) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    const unsubscribe = subscribeToComments((newComments) => {
+    if (!canvasId) {
+      setComments([]);
+      setLoading(false);
+      return;
+    }
+    
+    const unsubscribe = subscribeToComments(canvasId, (newComments) => {
       setComments(newComments);
       setLoading(false);
     });
     
     return () => unsubscribe();
-  }, []);
+  }, [canvasId]);
   
   // Group comments by thread
   const commentThreads = comments.reduce((acc, comment) => {

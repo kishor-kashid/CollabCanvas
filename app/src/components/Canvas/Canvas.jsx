@@ -36,6 +36,7 @@ import { createAITask, updateAITask, updateAITaskStatus, deleteAITask, deleteAIT
 
 export default function Canvas() {
   const {
+    canvasId,
     stageRef,
     scale,
     position,
@@ -85,15 +86,15 @@ export default function Canvas() {
   } = useContext(CanvasContext);
   
   // Cursor tracking
-  const { cursors, updateCursor } = useCursors();
+  const { cursors, updateCursor } = useCursors(canvasId);
   
   // Comments
-  const { comments, commentThreads, unresolvedCount } = useComments();
+  const { comments, commentThreads, unresolvedCount } = useComments(canvasId);
   const [selectedCommentThread, setSelectedCommentThread] = useState(null);
   const [newCommentDialog, setNewCommentDialog] = useState(null); // { position, shapeId }
   
   // AI Tasks
-  const { aiTasks, pendingTasks, pendingCount, completedCount } = useAITasks(currentUserId);
+  const { aiTasks, pendingTasks, pendingCount, completedCount } = useAITasks(canvasId, currentUserId);
   const [selectedAITask, setSelectedAITask] = useState(null);
   const [aiTaskDialog, setAiTaskDialog] = useState(null); // { position, shapeId, existingTask }
   
@@ -1316,6 +1317,7 @@ export default function Canvas() {
       {/* Comment Thread Panel */}
       {selectedCommentThread && (
         <CommentThread
+          canvasId={canvasId}
           thread={selectedCommentThread}
           shapeId={selectedCommentThread[0]?.shapeId}
           position={selectedCommentThread[0]?.position}
@@ -1326,6 +1328,7 @@ export default function Canvas() {
       {/* New Comment Dialog */}
       {newCommentDialog && (
         <NewCommentDialog
+          canvasId={canvasId}
           position={newCommentDialog.position}
           shapeId={newCommentDialog.shapeId}
           onClose={() => setNewCommentDialog(null)}
@@ -1353,6 +1356,7 @@ export default function Canvas() {
               } else {
                 // Create new task
                 await createAITask(
+                  canvasId,
                   { command, position, shapeId },
                   { uid: currentUserId, displayName: 'User', email: '' }
                 );

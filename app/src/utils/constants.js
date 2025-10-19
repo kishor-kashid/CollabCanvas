@@ -63,8 +63,17 @@ export const CURSOR_COLORS = [
 
 // Firebase collections/paths
 export const CANVAS_COLLECTION = 'canvas';
-export const CANVAS_ID = 'global-canvas-v1';
-export const SESSION_PATH = 'sessions/global-canvas-v1';
+export const SHARED_CANVAS_ID = 'shared-canvas'; // Special shared canvas for everyone
+export const CANVASES_COLLECTION = 'canvases'; // Canvas metadata collection
+export const USER_CANVASES_COLLECTION = 'userCanvases'; // User's canvas index
+export const SHARE_CODES_COLLECTION = 'shareCodes'; // Share code mapping
+
+// Helper to get session path for a canvas
+export const getSessionPath = (canvasId) => `sessions/${canvasId}`;
+
+// Deprecated - for migration only
+export const LEGACY_CANVAS_ID = 'global-canvas-v1';
+export const LEGACY_SESSION_PATH = 'sessions/global-canvas-v1';
 
 // Performance thresholds
 export const MAX_SHAPES = 500; // Max shapes for MVP performance target

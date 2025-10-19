@@ -5,17 +5,17 @@ import { useAuth } from './useAuth';
 import { 
   subscribeToCursors, 
   updateCursorPosition, 
-  initializeUserSession, 
-  removeUserSession 
+  initializeUserSession 
 } from '../services/cursors';
 import { generateUserColor } from '../utils/helpers';
 import { CURSOR_UPDATE_INTERVAL } from '../utils/constants';
 
 /**
  * Custom hook for real-time cursor tracking
+ * @param {string} canvasId - Canvas ID
  * @returns {object} Cursors state and update function
  */
-export function useCursors() {
+export function useCursors(canvasId) {
   const { currentUser } = useAuth();
   const [cursors, setCursors] = useState({});
   const [userColor] = useState(() => {
@@ -29,7 +29,7 @@ export function useCursors() {
   
   // Initialize user session and subscribe to cursor updates
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser || !canvasId) {
       setCursors({});
       initializedRef.current = false;
       return;
@@ -41,12 +41,12 @@ export function useCursors() {
                        'Anonymous';
     
     // Initialize user session (sets up onDisconnect handler)
-    initializeUserSession(currentUser.uid, displayName, userColor).then(() => {
+    initializeUserSession(canvasId, currentUser.uid, displayName, userColor).then(() => {
       initializedRef.current = true;
     });
     
     // Subscribe to cursor updates
-    const unsubscribe = subscribeToCursors((allCursors) => {
+    const unsubscribe = subscribeToCursors(canvasId, (allCursors) => {
       // Filter out current user's cursor
       const otherCursors = { ...allCursors };
       delete otherCursors[currentUser.uid];
@@ -57,14 +57,10 @@ export function useCursors() {
     // Cleanup function
     return () => {
       unsubscribe();
-      
-      // Remove user session on unmount
-      if (initializedRef.current) {
-        removeUserSession(currentUser.uid);
-        initializedRef.current = false;
-      }
+      initializedRef.current = false;
+      // Note: Session cleanup is handled automatically by Firebase onDisconnect
     };
-  }, [currentUser, userColor]);
+  }, [canvasId, currentUser, userColor]);
   
   /**
    * Update cursor position (throttled)
@@ -95,8 +91,8 @@ export function useCursors() {
     lastUpdateRef.current = now;
     
     // Update in Realtime Database (only position, not full user data)
-    updateCursorPosition(currentUser.uid, x, y);
-  }, [currentUser]);
+    updateCursorPosition(canvasId, currentUser.uid, x, y);
+  }, [canvasId, currentUser]);
   
   return {
     cursors,
