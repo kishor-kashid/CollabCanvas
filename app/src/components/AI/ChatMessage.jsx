@@ -1,5 +1,6 @@
 // ChatMessage - Individual message bubble component
 
+import ReactMarkdown from 'react-markdown';
 import { FUNCTION_STATUS } from '../../utils/aiConstants';
 
 /**
@@ -34,8 +35,42 @@ export default function ChatMessage({ message, isUser, timestamp, functionCalls,
           `}
         >
           {/* Message content */}
-          <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-            {message}
+          <div className="text-sm leading-relaxed break-words markdown-content">
+            {isUser ? (
+              // Render user messages as plain text
+              <div className="whitespace-pre-wrap">{message}</div>
+            ) : (
+              // Render AI messages with markdown formatting
+              <ReactMarkdown
+                components={{
+                  // Style headers
+                  h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-3 mt-4 first:mt-0" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-base font-bold mb-2 mt-2" {...props} />,
+                  // Style paragraphs
+                  p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                  // Style lists
+                  ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
+                  ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                  li: ({node, ...props}) => <li className="ml-2" {...props} />,
+                  // Style code blocks
+                  code: ({node, inline, ...props}) => 
+                    inline 
+                      ? <code className="bg-gray-200 bg-opacity-50 px-1 py-0.5 rounded text-xs font-mono" {...props} />
+                      : <code className="block bg-gray-200 bg-opacity-50 p-2 rounded text-xs font-mono overflow-x-auto my-2" {...props} />,
+                  // Style strong/bold
+                  strong: ({node, ...props}) => <strong className="font-bold" {...props} />,
+                  // Style emphasis/italic
+                  em: ({node, ...props}) => <em className="italic" {...props} />,
+                  // Style horizontal rules
+                  hr: ({node, ...props}) => <hr className="my-3 border-gray-300 opacity-30" {...props} />,
+                  // Style links
+                  a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} />,
+                }}
+              >
+                {message}
+              </ReactMarkdown>
+            )}
           </div>
 
           {/* Function calls indicator */}

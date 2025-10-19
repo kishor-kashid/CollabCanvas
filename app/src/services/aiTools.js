@@ -1748,86 +1748,447 @@ function executeSelectShapesByDescription(params, context) {
 }
 
 /**
- * Execute createComplexLayout tool
+ * Execute createComplexLayout tool - Create pre-designed layouts with instant rendering
  */
 async function executeCreateComplexLayout(params, context) {
   try {
-    const { layoutType, config = {}, startX = 200, startY = 200 } = params;
+    const { layoutType, config = {} } = params;
     
-    const createdShapes = [];
+    // Calculate starting position (centered in viewport if available)
+    let startX = 1000;
+    let startY = 1000;
+    
+    if (context.viewport) {
+      const { position, scale, width: vpWidth, height: vpHeight } = context.viewport;
+      startX = (-position.x + vpWidth / 2) / scale - 125; // Center with offset
+      startY = (-position.y + vpHeight / 2) / scale - 150;
+    }
+    
+    let allShapesData = [];
+    let layoutDescription = '';
     
     if (layoutType === 'loginForm') {
-      // Create login form
-      const elements = [
-        { type: 'text', text: 'Login', x: startX, y: startY, fontSize: 32 },
-        { type: 'text', text: 'Username:', x: startX, y: startY + 60, fontSize: 18 },
-        { type: 'rectangle', x: startX, y: startY + 90, width: 250, height: 40, fill: '#FFFFFF' },
-        { type: 'text', text: 'Password:', x: startX, y: startY + 150, fontSize: 18 },
-        { type: 'rectangle', x: startX, y: startY + 180, width: 250, height: 40, fill: '#FFFFFF' },
-        { type: 'rectangle', x: startX, y: startY + 250, width: 250, height: 45, fill: '#0066FF' },
-        { type: 'text', text: 'Submit', x: startX + 95, y: startY + 263, fontSize: 18, fill: '#FFFFFF' },
+      // Build complete shape objects for optimized login form (3x original / 2x previous)
+      const timestamp = Date.now();
+      
+      // Form dimensions (3x original = 2x larger than previous)
+      const formWidth = 750;
+      const inputHeight = 120;
+      const buttonHeight = 136;
+      const padding = 60;
+      
+      allShapesData = [
+        // White background for entire form
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_bg`,
+          type: 'rectangle',
+          x: startX - padding,
+          y: startY - padding,
+          width: formWidth + (padding * 2),
+          height: 1006, // Calculated to fit all elements with padding (2x)
+          fill: '#FFFFFF',
+          stroke: '#E0E0E0',
+          strokeWidth: 2,
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+        // Title: "Login" (centered)
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_0`,
+          type: 'text',
+          x: startX + 280, // Centered: 750/2 - ~95 (half of "Login" width at 96px)
+          y: startY,
+          text: 'Login',
+          fontSize: 96,
+          fontFamily: 'Arial',
+          fontStyle: 'bold',
+          fill: '#000000',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+        // Username label
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_1`,
+          type: 'text',
+          x: startX,
+          y: startY + 180,
+          text: 'Username:',
+          fontSize: 54,
+          fontFamily: 'Arial',
+          fill: '#000000',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+        // Username input field background (white rectangle)
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_2a`,
+          type: 'rectangle',
+          x: startX,
+          y: startY + 270,
+          width: formWidth,
+          height: inputHeight,
+          fill: '#FFFFFF',
+          stroke: '#CCCCCC',
+          strokeWidth: 4,
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+        // Username input field (editable text)
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_2b`,
+          type: 'text',
+          x: startX + 20,
+          y: startY + 300,
+          text: '',
+          fontSize: 48,
+          fontFamily: 'Arial',
+          fill: '#333333',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+          placeholder: 'Enter username',
+        },
+        // Password label
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_3`,
+          type: 'text',
+          x: startX,
+          y: startY + 450,
+          text: 'Password:',
+          fontSize: 54,
+          fontFamily: 'Arial',
+          fill: '#000000',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+        // Password input field background (white rectangle)
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_4a`,
+          type: 'rectangle',
+          x: startX,
+          y: startY + 540,
+          width: formWidth,
+          height: inputHeight,
+          fill: '#FFFFFF',
+          stroke: '#CCCCCC',
+          strokeWidth: 4,
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+        // Password input field (editable text)
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_4b`,
+          type: 'text',
+          x: startX + 20,
+          y: startY + 570,
+          text: '',
+          fontSize: 48,
+          fontFamily: 'Arial',
+          fill: '#333333',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+          placeholder: 'Enter password',
+        },
+        // Submit button (blue rectangle)
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_5`,
+          type: 'rectangle',
+          x: startX,
+          y: startY + 750,
+          width: formWidth,
+          height: buttonHeight,
+          fill: '#0066FF',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+        // Submit button text (bold, white, centered)
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_6`,
+          type: 'text',
+          x: startX + 300, // Centered: 750/2 - ~75 (half of "Submit" width at 54px bold)
+          y: startY + 794, // Vertically centered in button
+          text: 'Submit',
+          fontSize: 54,
+          fontFamily: 'Arial',
+          fontStyle: 'bold',
+          fill: '#FFFFFF',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
       ];
       
-      for (const el of elements) {
-        await context.addShape(el.type, { x: el.x, y: el.y });
-        createdShapes.push(el);
-      }
-      
-      return {
-        success: true,
-        message: 'Created login form with username, password fields, and submit button',
-        shapesCreated: elements.length,
-        layoutType,
-      };
+      layoutDescription = 'optimized login form with username and password fields';
     }
-    
-    if (layoutType === 'navigationBar') {
+    else if (layoutType === 'navigationBar') {
       const menuItems = config.menuItems || ['Home', 'About', 'Services', 'Contact'];
+      const timestamp = Date.now();
       
-      // Background bar
-      await context.addShape('rectangle', { x: startX, y: startY });
+      // Navbar dimensions (4× bigger with professional design)
+      const navWidth = 2400;
+      const navHeight = 240;
+      const buttonWidth = 360;
+      const buttonHeight = 160;
+      const buttonSpacing = 40;
+      const logoWidth = 200;
       
-      // Menu items
-      let currentX = startX + 20;
-      for (const item of menuItems) {
-        await context.addShape('text', { x: currentX, y: startY + 20 });
-        currentX += 120;
-        createdShapes.push({ type: 'text', text: item });
-      }
+      allShapesData = [];
       
+      // 1. Main navbar background (modern dark gray)
+      allShapesData.push({
+        id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_bg`,
+        type: 'rectangle',
+        x: startX,
+        y: startY,
+        width: navWidth,
+        height: navHeight,
+        fill: '#1F2937', // Tailwind gray-800
+        stroke: '#374151', // Subtle border
+        strokeWidth: 2,
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+        opacity: 1.0,
+        blendMode: 'source-over',
+      });
+      
+      // 2. Logo/Brand area on the left
+      allShapesData.push({
+        id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_logo_bg`,
+        type: 'rectangle',
+        x: startX + 40,
+        y: startY + 40,
+        width: logoWidth,
+        height: 160,
+        fill: '#3B82F6', // Blue accent
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+        opacity: 1.0,
+        blendMode: 'source-over',
+      });
+      
+      allShapesData.push({
+        id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_logo_text`,
+        type: 'text',
+        x: startX + 60,
+        y: startY + 90,
+        text: 'LOGO',
+        fontSize: 72,
+        fontFamily: 'Arial',
+        fontStyle: 'bold',
+        fill: '#FFFFFF',
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+        opacity: 1.0,
+        blendMode: 'source-over',
+      });
+      
+      // 3. Menu button items (starting after logo)
+      let currentX = startX + logoWidth + 120; // Start after logo with spacing
+      
+      menuItems.forEach((item, index) => {
+        // Button background (looks like a button!)
+        allShapesData.push({
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_btn_${index}`,
+          type: 'rectangle',
+          x: currentX,
+          y: startY + 40,
+          width: buttonWidth,
+          height: buttonHeight,
+          fill: index === 0 ? '#3B82F6' : '#374151', // First item (Home) highlighted
+          stroke: '#4B5563',
+          strokeWidth: 2,
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        });
+        
+        // Button text (centered in button)
+        allShapesData.push({
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_text_${index}`,
+          type: 'text',
+          x: currentX + buttonWidth / 2 - (item.length * 22), // Approximate centering
+          y: startY + 90,
+          text: item,
+          fontSize: 72,
+          fontFamily: 'Arial',
+          fontStyle: index === 0 ? 'bold' : 'normal', // Bold for active item
+          fill: '#FFFFFF',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        });
+        
+        currentX += buttonWidth + buttonSpacing;
+      });
+      
+      // 4. Add a subtle bottom border/shadow effect
+      allShapesData.push({
+        id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_shadow`,
+        type: 'rectangle',
+        x: startX,
+        y: startY + navHeight - 8,
+        width: navWidth,
+        height: 8,
+        fill: '#111827', // Darker shadow
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+        opacity: 0.5,
+        blendMode: 'source-over',
+      });
+      
+      layoutDescription = `professional navigation bar with logo and ${menuItems.length} button-style menu items`;
+    }
+    else if (layoutType === 'cardLayout') {
+      const timestamp = Date.now();
+      
+      allShapesData = [
+        // Card container
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_0`,
+          type: 'rectangle',
+          x: startX,
+          y: startY,
+          width: 300,
+          height: 400,
+          fill: '#F5F5F5',
+          stroke: '#E0E0E0',
+          strokeWidth: 1,
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+        // Title
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_1`,
+          type: 'text',
+          x: startX + 15,
+          y: startY + 20,
+          text: 'Card Title',
+          fontSize: 24,
+          fontFamily: 'Arial',
+          fill: '#000000',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+        // Image placeholder rectangle
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_2`,
+          type: 'rectangle',
+          x: startX + 10,
+          y: startY + 60,
+          width: 280,
+          height: 200,
+          fill: '#CCCCCC',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+        // Image placeholder text
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_3`,
+          type: 'text',
+          x: startX + 80,
+          y: startY + 150,
+          text: 'Image Placeholder',
+          fontSize: 14,
+          fontFamily: 'Arial',
+          fill: '#666666',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+        // Description text
+        {
+          id: `shape_${timestamp}_${Math.random().toString(36).substring(2, 11)}_4`,
+          type: 'text',
+          x: startX + 15,
+          y: startY + 280,
+          text: 'Card description goes here',
+          fontSize: 16,
+          fontFamily: 'Arial',
+          fill: '#000000',
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+          opacity: 1.0,
+          blendMode: 'source-over',
+        },
+      ];
+      
+      layoutDescription = 'card layout with title, image placeholder, and description';
+    }
+    else {
       return {
-        success: true,
-        message: `Created navigation bar with ${menuItems.length} menu items: ${menuItems.join(', ')}`,
-        shapesCreated: menuItems.length + 1,
-        layoutType,
+        success: false,
+        error: `Unknown layout type: ${layoutType}. Available: loginForm, navigationBar, cardLayout`,
       };
     }
     
-    if (layoutType === 'cardLayout') {
-      const elements = [
-        { type: 'rectangle', x: startX, y: startY, width: 300, height: 400, fill: '#F5F5F5' },
-        { type: 'text', text: 'Card Title', x: startX + 15, y: startY + 20, fontSize: 24 },
-        { type: 'rectangle', x: startX + 10, y: startY + 60, width: 280, height: 200, fill: '#CCCCCC' },
-        { type: 'text', text: 'Image Placeholder', x: startX + 80, y: startY + 150, fontSize: 14 },
-        { type: 'text', text: 'Card description goes here', x: startX + 15, y: startY + 280, fontSize: 16 },
-      ];
-      
-      for (const el of elements) {
-        await context.addShape(el.type, { x: el.x, y: el.y });
-        createdShapes.push(el);
-      }
-      
-      return {
-        success: true,
-        message: 'Created card layout with title, image placeholder, and description',
-        shapesCreated: elements.length,
-        layoutType,
-      };
+    // Step 1: Optimistic UI - Shapes appear instantly!
+    if (context.addShapesOptimistic) {
+      context.addShapesOptimistic(allShapesData);
     }
+    
+    // Step 2: Background sync to Firestore
+    setTimeout(async () => {
+      try {
+        await context.addShapesBatch(allShapesData);
+      } catch (error) {
+        console.error('Failed to sync complex layout:', error);
+      }
+    }, 0);
     
     return {
-      success: false,
-      error: `Unknown layout type: ${layoutType}`,
+      success: true,
+      message: `Created ${layoutDescription} with ${allShapesData.length} elements`,
+      shapesCreated: allShapesData.length,
+      layoutType,
+      immediate: true,
     };
   } catch (error) {
     console.error('Error in executeCreateComplexLayout:', error);
