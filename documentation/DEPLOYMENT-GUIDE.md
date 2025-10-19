@@ -1,6 +1,15 @@
-# Firebase Hosting Deployment Guide
+# CollabCanvas - Deployment Guide
 
-This guide will help you deploy CollabCanvas to Firebase Hosting.
+**Last Updated:** January 2025  
+**Status:** ✅ **DEPLOYMENT CONFIGURATION COMPLETE**
+
+---
+
+## Overview
+
+Complete deployment guide for CollabCanvas to Firebase Hosting. All configuration files are in place and ready for deployment.
+
+---
 
 ## Prerequisites
 
@@ -48,14 +57,14 @@ Example `.firebaserc`:
 
 ### 4. Build the Production Bundle
 
-Navigate to the frontend directory and build:
+Navigate to the app directory and build:
 
 ```bash
-cd frontend
+cd app
 npm run build
 ```
 
-This creates an optimized production build in `frontend/dist/`.
+This creates an optimized production build in `app/dist/`.
 
 ### 5. Deploy to Firebase Hosting
 
@@ -89,9 +98,10 @@ After deployment completes, you'll see URLs like:
 
 ### `firebase.json`
 - Configures Firebase Hosting settings
-- Points to `frontend/dist` as the public directory
+- Points to `app/dist` as the public directory
 - Sets up SPA routing (all routes → index.html)
 - Configures caching headers for static assets
+- Includes Firestore rules and indexes configuration
 
 ### `.firebaserc`
 - Links your local project to your Firebase project

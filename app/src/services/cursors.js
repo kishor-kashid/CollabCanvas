@@ -32,8 +32,6 @@ export async function initializeUserSession(canvasId, userId, displayName, color
     
     // Register onDisconnect to remove user when they disconnect
     await onDisconnect(userRef).remove();
-    
-    console.log('✅ User session initialized with onDisconnect handler');
   } catch (error) {
     console.error('Error initializing user session:', error);
   }
@@ -96,30 +94,24 @@ export function subscribeToCursors(canvasId, callback) {
 
 /**
  * Remove user from the session (manual cleanup)
- * ⚠️ DEPRECATED: Do not use this function directly!
- * Session cleanup is handled automatically by Firebase onDisconnect.
- * Calling this manually may cause permission errors.
+ * Called when the user navigates away from the canvas to ensure immediate cleanup.
+ * The onDisconnect handler remains as a backup for unexpected disconnections.
  * @param {string} canvasId - Canvas ID
  * @param {string} userId - User ID
  * @returns {Promise<void>}
  */
 export async function removeUserSession(canvasId, userId) {
-  console.warn('⚠️ removeUserSession called - this should be handled by onDisconnect automatically');
   try {
     if (!canvasId) {
       return;
     }
     
-    console.log('🗑️ Removing user session for:', userId);
     const sessionPath = getSessionPath(canvasId);
     const userRef = ref(rtdb, `${sessionPath}/${userId}`);
     
-    // Cancel any pending onDisconnect operations
-    await onDisconnect(userRef).cancel();
-    
-    // Remove the user data
+    // Remove the user data immediately
+    // Note: We don't cancel onDisconnect here - it serves as a backup cleanup
     await remove(userRef);
-    console.log('✅ User session removed successfully');
   } catch (error) {
     console.error('❌ Error removing user session:', error);
   }
@@ -137,7 +129,6 @@ export async function cleanupStaleSessions(canvasId, maxAge = 5 * 60 * 1000) {
       return;
     }
     
-    console.log('🧹 Cleaning up stale sessions...');
     const sessionPath = getSessionPath(canvasId);
     const sessionsRef = ref(rtdb, sessionPath);
     
@@ -146,7 +137,6 @@ export async function cleanupStaleSessions(canvasId, maxAge = 5 * 60 * 1000) {
     const snapshot = await get(sessionsRef);
     
     if (!snapshot.exists()) {
-      console.log('✅ No sessions to clean up');
       return;
     }
     
@@ -161,14 +151,11 @@ export async function cleanupStaleSessions(canvasId, maxAge = 5 * 60 * 1000) {
         
         // If session is older than maxAge, remove it
         if (age > maxAge) {
-          console.log(`🗑️ Removing stale session for user ${userId} (age: ${Math.round(age / 1000)}s)`);
           await remove(ref(rtdb, `${sessionPath}/${userId}`));
           cleanedCount++;
         }
       }
     }
-    
-    console.log(`✅ Cleaned up ${cleanedCount} stale session(s)`);
   } catch (error) {
     console.error('❌ Error cleaning up stale sessions:', error);
   }

@@ -129,7 +129,6 @@ export async function deleteCommentsByShapeId(canvasId, shapeId) {
     
     await Promise.all(deletePromises);
     
-    console.log(`🗑️ Deleted ${snapshot.docs.length} comment(s) for shape ${shapeId}`);
     return snapshot.docs.length;
   } catch (error) {
     console.error('❌ Error deleting comments by shapeId:', error);

@@ -49,8 +49,6 @@ try {
   auth = getAuth(app);
   db = getFirestore(app);
   rtdb = getDatabase(app);
-  
-  console.log('✅ Firebase initialized successfully');
 } catch (error) {
   console.error('❌ Firebase initialization error:', error);
 }

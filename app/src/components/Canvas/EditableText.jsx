@@ -149,11 +149,9 @@ const EditableTextComponent = forwardRef(function EditableText({
       
       // Wait for the update to complete before showing the text
       if (newText && newText !== text) {
-        console.log('📝 Saving new text:', newText);
         await onTextChange(newText);
       } else if (!newText) {
         // If empty, keep original text
-        console.log('⚠️ Empty text, keeping original');
         await onTextChange(text || 'Double-click to edit');
       }
       

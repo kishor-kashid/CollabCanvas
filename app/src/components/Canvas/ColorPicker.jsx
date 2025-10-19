@@ -14,6 +14,7 @@ export default function ColorPicker({
   currentColor,
   onColorChange,
   onClose,
+  recentColors = [], // Recently used colors
   position = null, // { top, left } or null for default positioning
   anchorElement = null // Reference element to position below
 }) {
@@ -113,21 +114,50 @@ export default function ColorPicker({
         </button>
       </div>
 
+      {/* Recently Used Colors */}
+      {recentColors.length > 0 && (
+        <div className="mb-4">
+          <label className="text-xs text-gray-600 mb-1.5 block font-medium">
+            Recently Used
+          </label>
+          <div className="flex gap-2">
+            {recentColors.map((color, index) => (
+              <button
+                key={`${color}-${index}`}
+                onClick={() => handlePresetClick(color)}
+                className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                  customColor.toUpperCase() === color.toUpperCase()
+                    ? 'border-blue-500 scale-110 shadow-md' 
+                    : 'border-gray-300 hover:border-gray-400 hover:scale-105'
+                }`}
+                style={{ backgroundColor: color }}
+                title={`${color} (Recently Used)`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Preset Colors Grid */}
-      <div className="grid grid-cols-8 gap-2 mb-3">
-        {PRESET_COLORS.map((color) => (
-          <button
-            key={color}
-            onClick={() => handlePresetClick(color)}
-            className={`w-8 h-8 rounded border-2 transition ${
-              customColor === color 
-                ? 'border-blue-500 scale-110' 
-                : 'border-gray-300 hover:border-gray-400'
-            }`}
-            style={{ backgroundColor: color }}
-            title={color}
-          />
-        ))}
+      <div className="mb-3">
+        <label className="text-xs text-gray-600 mb-1.5 block font-medium">
+          Preset Colors
+        </label>
+        <div className="grid grid-cols-8 gap-2">
+          {PRESET_COLORS.map((color) => (
+            <button
+              key={color}
+              onClick={() => handlePresetClick(color)}
+              className={`w-8 h-8 rounded border-2 transition ${
+                customColor === color 
+                  ? 'border-blue-500 scale-110' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+              style={{ backgroundColor: color }}
+              title={color}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Custom Color Picker */}

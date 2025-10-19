@@ -16,9 +16,6 @@ export function trackRender(componentName) {
     
     // Log every 2 seconds
     if (timeSinceLastLog >= 2000) {
-      const rendersPerSecond = (renderCount / (timeSinceLastLog / 1000)).toFixed(1);
-      console.log(`🎨 Performance: ${renderCount} renders in ${(timeSinceLastLog / 1000).toFixed(1)}s (${rendersPerSecond} renders/sec)`);
-      
       renderCount = 0;
       lastLogTime = now;
     }
@@ -33,8 +30,6 @@ export function logShapeStats(shapes) {
   if (process.env.NODE_ENV === 'development') {
     const visibleCount = shapes.filter(s => s.visible !== false).length;
     const lockedCount = shapes.filter(s => s.isLocked).length;
-    
-    console.log(`📊 Canvas Stats: ${shapes.length} total shapes, ${visibleCount} visible, ${lockedCount} locked`);
   }
 }
 
@@ -44,13 +39,6 @@ export function logShapeStats(shapes) {
  * @param {Function} fn - Function to measure
  */
 export async function measureTime(label, fn) {
-  if (process.env.NODE_ENV === 'development') {
-    const start = performance.now();
-    const result = await fn();
-    const end = performance.now();
-    console.log(`⏱️ ${label}: ${(end - start).toFixed(2)}ms`);
-    return result;
-  }
   return await fn();
 }
 

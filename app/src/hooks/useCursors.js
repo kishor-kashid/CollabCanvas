@@ -5,7 +5,8 @@ import { useAuth } from './useAuth';
 import { 
   subscribeToCursors, 
   updateCursorPosition, 
-  initializeUserSession 
+  initializeUserSession,
+  removeUserSession
 } from '../services/cursors';
 import { generateUserColor } from '../utils/helpers';
 import { CURSOR_UPDATE_INTERVAL } from '../utils/constants';
@@ -54,11 +55,16 @@ export function useCursors(canvasId) {
       setCursors(otherCursors);
     });
     
-    // Cleanup function
+    // Cleanup function - explicitly remove user session on unmount
     return () => {
       unsubscribe();
       initializedRef.current = false;
-      // Note: Session cleanup is handled automatically by Firebase onDisconnect
+      
+      // Explicitly remove user session when component unmounts
+      // This ensures immediate cleanup when navigating away from canvas
+      if (currentUser && canvasId) {
+        removeUserSession(canvasId, currentUser.uid);
+      }
     };
   }, [canvasId, currentUser, userColor]);
   

@@ -5,6 +5,7 @@ import { Stage, Layer, Rect, Line, Text } from 'react-konva';
 import { CanvasContext } from '../../contexts/CanvasContext';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../utils/constants';
 import { useCursors } from '../../hooks/useCursors';
+import { useRecentColors } from '../../hooks/useRecentColors';
 import Shape from './Shape';
 import CursorMarker from '../Collaboration/CursorMarker';
 import TextFormattingToolbar from './TextFormattingToolbar';
@@ -101,6 +102,16 @@ export default function Canvas() {
   // Color picker state
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [editModeShapeId, setEditModeShapeId] = useState(null); // Track which shape is in edit mode
+  
+  // Recent colors hook
+  const { recentColors, addRecentColor, refreshRecentColors } = useRecentColors(currentUserId);
+  
+  // Refresh recent colors when color picker opens
+  useEffect(() => {
+    if (isColorPickerOpen) {
+      refreshRecentColors();
+    }
+  }, [isColorPickerOpen, refreshRecentColors]);
   
   // Selection box drawing state
   const [isDrawingSelection, setIsDrawingSelection] = useState(false);
@@ -443,6 +454,8 @@ export default function Canvas() {
   const handleColorChange = (newColor) => {
     if (selectedId) {
       updateShape(selectedId, { fill: newColor });
+      // Add to recent colors
+      addRecentColor(newColor);
     }
   };
   
@@ -623,6 +636,7 @@ export default function Canvas() {
           currentColor={selectedShape.fill}
           onColorChange={handleColorChange}
           onClose={() => handleColorEditUnlock(selectedId)()}
+          recentColors={recentColors}
           position={{
             top: 155, // Position below the color button (toolbar height + button height + gap)
             left: (window.innerWidth / 2) - 90, // Offset left from center to align with color button position

@@ -17,12 +17,9 @@ export function usePresence(canvasId) {
   
   useEffect(() => {
     if (!currentUser || !canvasId) {
-      console.log('❌ usePresence: No currentUser or canvasId');
       setOnlineUsers([]);
       return;
     }
-    
-    console.log('✅ usePresence: Subscribing to presence updates');
     
     // Subscribe to presence updates (shares the same data as cursors)
     const unsubscribe = subscribeToPresence(canvasId, (presenceData) => {
@@ -30,12 +27,10 @@ export function usePresence(canvasId) {
         userId,
         ...userData,
       }));
-      console.log('👥 Online users:', users.length, 'total');
       setOnlineUsers(users);
     });
     
     return () => {
-      console.log('🧹 Unsubscribing from presence updates');
       unsubscribe();
     };
   }, [canvasId, currentUser]);

@@ -116,7 +116,6 @@ export async function createCanvas(userId, canvasName, userName, settings = {}) 
     
     await batch.commit();
     
-    console.log('✅ Canvas created:', canvasId);
     return canvasData;
   } catch (error) {
     console.error('❌ Error creating canvas:', error);
@@ -160,8 +159,6 @@ export async function updateCanvas(canvasId, updates) {
       ...updates,
       updatedAt: Date.now(),
     });
-    
-    console.log('✅ Canvas updated:', canvasId);
   } catch (error) {
     console.error('❌ Error updating canvas:', error);
     throw error;
@@ -218,8 +215,6 @@ export async function deleteCanvas(canvasId, userId) {
     }
     
     await batch.commit();
-    
-    console.log('✅ Canvas deleted:', canvasId);
   } catch (error) {
     console.error('❌ Error deleting canvas:', error);
     throw error;
@@ -352,7 +347,6 @@ export async function joinCanvasByShareCode(shareCode, userId, userName) {
     
     await batch.commit();
     
-    console.log('✅ Joined canvas:', canvas.id);
     return canvas;
   } catch (error) {
     console.error('❌ Error joining canvas:', error);
@@ -407,7 +401,6 @@ export async function regenerateShareCode(canvasId, userId) {
     
     await batch.commit();
     
-    console.log('✅ Share code regenerated:', newShareCode);
     return newShareCode;
   } catch (error) {
     console.error('❌ Error regenerating share code:', error);
@@ -447,8 +440,6 @@ export async function removeCollaborator(canvasId, collaboratorId, ownerId) {
     }
     
     await batch.commit();
-    
-    console.log('✅ Collaborator removed:', collaboratorId);
   } catch (error) {
     console.error('❌ Error removing collaborator:', error);
     throw error;

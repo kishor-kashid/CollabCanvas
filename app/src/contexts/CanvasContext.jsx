@@ -319,7 +319,6 @@ export function CanvasProvider({ canvasId, children }) {
       // Check if shape is locked by another user
       const shape = shapes.find(s => s.id === id);
       if (shape?.isLocked && shape.lockedBy !== currentUser.uid) {
-        console.warn('Cannot delete: Shape is locked by another user');
         return false;
       }
       
@@ -329,7 +328,6 @@ export function CanvasProvider({ canvasId, children }) {
         try {
           await deleteCommentsByShapeId(canvasId, id);
         } catch (error) {
-          console.warn('Failed to delete comments for shape:', error);
           // Continue with shape deletion even if comment deletion fails
         }
         
@@ -351,7 +349,7 @@ export function CanvasProvider({ canvasId, children }) {
         try {
           await deleteCommentsByShapeId(canvasId, id);
         } catch (error) {
-          console.warn('Failed to delete comments for shape:', error);
+          // Silently continue if comment deletion fails
         }
         
         await canvasService.deleteShape(canvasId, id);
@@ -422,7 +420,6 @@ export function CanvasProvider({ canvasId, children }) {
       try {
         await Promise.all(shapeIds.map(id => deleteCommentsByShapeId(canvasId, id)));
       } catch (error) {
-        console.warn('Failed to delete some comments:', error);
         // Continue with shape deletion even if some comment deletions fail
       }
       
@@ -774,7 +771,7 @@ export function CanvasProvider({ canvasId, children }) {
         break;
       
       default:
-        console.warn('Unknown action type:', action.type);
+        break;
     }
   };
   
@@ -805,7 +802,7 @@ export function CanvasProvider({ canvasId, children }) {
         break;
       
       default:
-        console.warn('Unknown action type:', action.type);
+        break;
     }
   };
   

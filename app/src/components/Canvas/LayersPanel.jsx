@@ -213,7 +213,6 @@ export default function LayersPanel({ isOpen, onClose }) {
     // Update in Firestore
     try {
       await reorderShapes(newShapesOrder);
-      console.log('✅ Layers reordered successfully');
     } catch (error) {
       console.error('❌ Error reordering layers:', error);
       // Revert to original on error

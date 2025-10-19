@@ -44,7 +44,6 @@ export async function createAITask(canvasId, taskData, user) {
     };
     
     const docRef = await addDoc(collection(db, AI_TASKS_COLLECTION), newTask);
-    console.log('✅ Created AI task:', docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('❌ Error creating AI task:', error);
@@ -98,7 +97,6 @@ export async function updateAITaskStatus(taskId, status, result = null) {
 export async function deleteAITask(taskId) {
   try {
     await deleteDoc(doc(db, AI_TASKS_COLLECTION, taskId));
-    console.log('🗑️ Deleted AI task:', taskId);
   } catch (error) {
     console.error('❌ Error deleting AI task:', error);
     throw error;
@@ -133,7 +131,6 @@ export async function deleteAITasksByStatus(canvasId, userId, status = 'complete
     
     await Promise.all(deletePromises);
     
-    console.log(`🗑️ Deleted ${snapshot.docs.length} ${status} AI task(s)`);
     return snapshot.docs.length;
   } catch (error) {
     console.error('❌ Error deleting AI tasks by status:', error);
@@ -182,7 +179,6 @@ export async function getPendingAITasks(canvasId, userId) {
  */
 export function subscribeToAITasks(canvasId, userId, callback) {
   if (!userId) {
-    console.warn('⚠️ Cannot subscribe to AI tasks: no userId provided');
     return () => {};
   }
   

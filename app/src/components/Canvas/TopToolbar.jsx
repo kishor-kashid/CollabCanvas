@@ -7,6 +7,7 @@ import ColorPicker from './ColorPicker';
 import { useComments } from '../../hooks/useComments';
 import { useAITasks } from '../../hooks/useAITasks';
 import { useAuth } from '../../hooks/useAuth';
+import { useRecentColors } from '../../hooks/useRecentColors';
 import { deleteAITasksByStatus } from '../../services/aiTasks';
 
 export default function TopToolbar() {
@@ -46,10 +47,20 @@ export default function TopToolbar() {
   const { currentUser } = useAuth();
   const { pendingCount, completedCount } = useAITasks(canvasId, currentUser?.uid);
   
+  // Recent colors hook
+  const { recentColors, addRecentColor, refreshRecentColors } = useRecentColors(currentUser?.uid);
+  
   // Update zoom input when scale changes
   useEffect(() => {
     setZoomInput(Math.round(scale * 100));
   }, [scale]);
+  
+  // Refresh recent colors when color picker opens
+  useEffect(() => {
+    if (isColorPickerOpen) {
+      refreshRecentColors();
+    }
+  }, [isColorPickerOpen, refreshRecentColors]);
   
   // Handle zoom input change
   const handleZoomInputChange = (e) => {
@@ -412,8 +423,10 @@ export default function TopToolbar() {
             onColorChange={(newColor) => {
               setCurrentColor(newColor);
               localStorage.setItem('collabcanvas-current-color', newColor);
+              addRecentColor(newColor);
             }}
             onClose={() => setIsColorPickerOpen(false)}
+            recentColors={recentColors}
             anchorElement={colorButtonRef}
           />
         </>

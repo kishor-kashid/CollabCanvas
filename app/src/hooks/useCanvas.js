@@ -8,12 +8,8 @@ import { enableIndexedDbPersistence } from 'firebase/firestore';
 // Enable Firestore offline persistence (only call once)
 let persistenceEnabled = false;
 if (!persistenceEnabled) {
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('Persistence failed: Multiple tabs open');
-    } else if (err.code === 'unimplemented') {
-      console.warn('Persistence not supported in this browser');
-    }
+  enableIndexedDbPersistence(db).catch(() => {
+    // Silently handle persistence errors
   });
   persistenceEnabled = true;
 }

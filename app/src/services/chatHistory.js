@@ -38,7 +38,6 @@ export const saveMessage = async (userId, message) => {
     };
 
     const docRef = await addDoc(messagesRef, messageData);
-    console.log('💾 Message saved:', docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('Error saving message:', error);
@@ -77,7 +76,6 @@ export const loadMessages = async (userId, limit = 50) => {
       });
     });
 
-    console.log(`📖 Loaded ${messages.length} messages`);
     return messages;
   } catch (error) {
     console.error('Error loading messages:', error);
@@ -101,7 +99,6 @@ export const clearHistory = async (userId) => {
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      console.log('No messages to clear');
       return 0;
     }
 
@@ -112,7 +109,6 @@ export const clearHistory = async (userId) => {
     });
 
     await batch.commit();
-    console.log(`🗑️ Cleared ${querySnapshot.size} messages`);
     return querySnapshot.size;
   } catch (error) {
     console.error('Error clearing history:', error);
@@ -134,7 +130,6 @@ export const deleteMessage = async (userId, messageId) => {
 
     const messageRef = doc(db, 'chatHistory', userId, 'messages', messageId);
     await deleteDoc(messageRef);
-    console.log(`🗑️ Deleted message: ${messageId}`);
   } catch (error) {
     console.error('Error deleting message:', error);
     throw error;
